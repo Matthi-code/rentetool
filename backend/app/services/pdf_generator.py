@@ -234,12 +234,9 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER_COLOR))
     story.append(Spacer(1, 0.3*cm))
 
-    disclaimer_text = """<b>DEMO-VERSIE - DISCLAIMER</b><br/><br/>
-Dit document is gegenereerd met de Rentetool demo-versie en is uitsluitend bedoeld als hulpmiddel
-voor illustratieve doeleinden. De berekeningen zijn indicatief en kunnen afwijken van de werkelijke
-verschuldigde rente. De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten
-en de juistheid van de ingevoerde gegevens. Aan dit document kunnen geen rechten worden ontleend.
-Raadpleeg bij twijfel een juridisch of financieel adviseur."""
+    disclaimer_text = """<b>TEST-VERSIE - DISCLAIMER</b><br/><br/>
+Dit document is gegenereerd met de Rentetool test-versie en is alleen te gebruiken voor testen.
+De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten."""
 
     disclaimer_style = ParagraphStyle(
         'Disclaimer',
