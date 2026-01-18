@@ -375,40 +375,40 @@ export default function Dashboard() {
         </Card>
       ) : viewMode === 'cards' ? (
         /* Card View */
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredCases.map((c) => (
             <Card
               key={c.id}
               className="cursor-pointer hover:border-primary hover:shadow-md transition-all group flex flex-col"
               onClick={() => router.push(`/case/${c.id}`)}
             >
-              <CardHeader className="pb-3 flex-1">
-                <CardTitle className="font-serif text-lg leading-snug group-hover:text-primary transition-colors">
+              <CardHeader className="p-3 pb-2 flex-1">
+                <CardTitle className="font-serif text-base leading-snug group-hover:text-primary transition-colors">
                   {c.naam}
                 </CardTitle>
                 {c.klant_referentie && (
-                  <CardDescription className="text-xs mt-1">
+                  <CardDescription className="text-xs mt-0.5">
                     Ref: {c.klant_referentie}
                   </CardDescription>
                 )}
-                <div className="flex gap-1.5 flex-wrap mt-2">
-                  <Badge variant="outline" className="text-xs" title="Vorderingen">
+                <div className="flex gap-1 flex-wrap mt-1.5">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0" title="Vorderingen">
                     {c.vorderingen_count ?? 0} V
                   </Badge>
-                  <Badge variant="outline" className="text-xs" title="Betalingen">
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0" title="Betalingen">
                     {c.deelbetalingen_count ?? 0} B
                   </Badge>
                   <SharedBadge sharing={c.sharing} />
                 </div>
               </CardHeader>
-              <CardContent className="pt-0 mt-auto">
-                <div className="grid grid-cols-2 gap-4 text-sm border-t pt-3">
+              <CardContent className="p-3 pt-0 mt-auto">
+                <div className="grid grid-cols-2 gap-2 text-xs border-t pt-2">
                   <div>
-                    <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">Einddatum</span>
+                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Einddatum</span>
                     <span className="font-medium">{formatDatum(c.einddatum)}</span>
                   </div>
                   <div className="text-right">
-                    <span className="block text-[11px] uppercase tracking-wider text-muted-foreground mb-0.5">Aangemaakt</span>
+                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Aangemaakt</span>
                     <span className="font-medium">{formatDatum(c.created_at)}</span>
                   </div>
                 </div>

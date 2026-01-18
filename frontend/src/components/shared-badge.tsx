@@ -16,7 +16,7 @@ export function SharedBadge({ sharing }: SharedBadgeProps) {
     return (
       <Badge
         variant="secondary"
-        className="text-xs"
+        className="text-[10px] px-1.5 py-0"
         title={`Gedeeld met ${count} ${count === 1 ? 'persoon' : 'personen'}`}
       >
         Gedeeld ({count})
@@ -32,7 +32,7 @@ export function SharedBadge({ sharing }: SharedBadgeProps) {
     return (
       <Badge
         variant="outline"
-        className={`text-xs ${isReadOnly ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}
+        className={`text-[10px] px-1.5 py-0 ${isReadOnly ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}
         title={`Gedeeld door ${sharing.shared_by?.email || 'onbekend'} - ${permissionTitle}`}
       >
         Van {sharedByName} {permissionLabel}
