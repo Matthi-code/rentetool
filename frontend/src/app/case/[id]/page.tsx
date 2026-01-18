@@ -781,19 +781,19 @@ export default function CaseDetailPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div className="p-4 bg-muted/30 rounded-lg">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Hoofdsom</div>
-                <div className="text-lg font-semibold font-mono">{formatBedrag(result.totalen.oorspronkelijk)}</div>
+                <div className="text-sm font-semibold font-mono">{formatBedrag(result.totalen.oorspronkelijk)}</div>
               </div>
               <div className="p-4 bg-muted/30 rounded-lg">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Kosten</div>
-                <div className="text-lg font-semibold font-mono">{formatBedrag(result.totalen.kosten)}</div>
+                <div className="text-sm font-semibold font-mono">{formatBedrag(result.totalen.kosten)}</div>
               </div>
               <div className="p-4 bg-muted/30 rounded-lg">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Berekende rente</div>
-                <div className="text-lg font-semibold font-mono">{formatBedrag(result.totalen.rente)}</div>
+                <div className="text-sm font-semibold font-mono">{formatBedrag(result.totalen.rente)}</div>
               </div>
               <div className="p-4 bg-primary rounded-lg text-primary-foreground">
                 <div className="text-xs uppercase tracking-wider opacity-80 mb-1">Totaal openstaand</div>
-                <div className="text-2xl font-bold font-mono">{formatBedrag(result.totalen.openstaand)}</div>
+                <div className="text-lg font-bold font-mono">{formatBedrag(result.totalen.openstaand)}</div>
               </div>
             </div>
 
