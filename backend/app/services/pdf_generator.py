@@ -621,39 +621,30 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
         mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
         mono_left = ParagraphStyle('MonoLeft', fontName='Courier', fontSize=8, alignment=TA_LEFT)
 
-        header = ["Periode", "Dagen", "Hoofdsom", "Rente %", "Rente"]
+        # Add icon column for kapitalisatie indicator
+        header = ["", "Periode", "Dagen", "Hoofdsom", "Rente %", "Rente"]
         data = [header]
         row_colors = []  # Track which rows are payment rows
 
         for p in periodes:
             periode_str = f"{format_datum(p.get('start', ''))} - {format_datum(p.get('eind', ''))}"
+            is_kap = p.get("is_kapitalisatie")
 
-            # Create period cell - with icon for kapitalisatie
-            if p.get("is_kapitalisatie") and os.path.exists(ICON_KAPITALISATIE):
-                # Table with icon + text side by side
-                icon_table = Table(
-                    [[Image(ICON_KAPITALISATIE, width=10, height=10), Paragraph(periode_str, mono_left)]],
-                    colWidths=[14, None]
-                )
-                icon_table.setStyle(TableStyle([
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                    ('TOPPADDING', (0, 0), (-1, -1), 0),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                ]))
-                period_cell = icon_table
+            # Icon cell for kapitalisatie
+            if is_kap and os.path.exists(ICON_KAPITALISATIE):
+                icon_cell = Image(ICON_KAPITALISATIE, width=8, height=8)
             else:
-                period_cell = Paragraph(periode_str, mono_left)
+                icon_cell = ""
 
             data.append([
-                period_cell,
+                icon_cell,
+                Paragraph(periode_str, mono_left),
                 Paragraph(str(p.get("dagen", 0)), mono_style),
                 Paragraph(format_bedrag(p.get("hoofdsom", 0)), mono_style),
                 Paragraph(format_percentage(p.get("rente_pct", 0)), mono_style),
                 Paragraph(format_bedrag(p.get("rente", 0)), mono_style)
             ])
-            row_colors.append('normal' if not p.get("is_kapitalisatie") else 'kapitalisatie')
+            row_colors.append('normal' if not is_kap else 'kapitalisatie')
 
             # Check for payment on this period's end date
             period_end = p.get("eind", "")
@@ -670,29 +661,21 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
                         db_kenmerk = db.get('kenmerk', '') or ''
                         payment_text = f'<b>Betaling</b> {db_kenmerk} op <font face="Courier">{format_datum(period_end)}</font>: {" | ".join(parts)}'
 
-                        # Payment row with icon
+                        # Payment row with icon in first column
                         if os.path.exists(ICON_BETALING):
-                            payment_cell = Table(
-                                [[Image(ICON_BETALING, width=10, height=10),
-                                  Paragraph(f'<font color="#16a34a">{payment_text}</font>',
-                                           ParagraphStyle('Payment', fontSize=8))]],
-                                colWidths=[14, None]
-                            )
-                            payment_cell.setStyle(TableStyle([
-                                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-                            ]))
+                            icon_cell = Image(ICON_BETALING, width=10, height=10)
                         else:
-                            payment_cell = Paragraph(f'<font color="#16a34a">{payment_text}</font>',
-                                                    ParagraphStyle('Payment', fontSize=8))
+                            icon_cell = ""
 
-                        data.append([payment_cell, "", "", "", ""])
+                        data.append([
+                            icon_cell,
+                            Paragraph(f'<font color="#16a34a">{payment_text}</font>',
+                                     ParagraphStyle('Payment', fontSize=8)),
+                            "", "", "", ""
+                        ])
                         row_colors.append('payment')
 
-        col_widths = [4.5*cm, 1.3*cm, 2.8*cm, 1.8*cm, 2.8*cm]
+        col_widths = [0.5*cm, 4*cm, 1.3*cm, 2.8*cm, 1.8*cm, 2.8*cm]
         table = Table(data, colWidths=col_widths)
 
         table_style = TableStyle([
@@ -718,9 +701,11 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
         for i, row_type in enumerate(row_colors, 1):
             if row_type == 'payment':
                 table_style.add('BACKGROUND', (0, i), (-1, i), PAYMENT_BG)
-                table_style.add('SPAN', (0, i), (-1, i))
+                table_style.add('SPAN', (1, i), (-1, i))  # Span from col 1 to keep icon in col 0
+                table_style.add('VALIGN', (0, i), (0, i), 'MIDDLE')
             elif row_type == 'kapitalisatie':
                 table_style.add('BACKGROUND', (0, i), (-1, i), colors.HexColor("#eff6ff"))
+                table_style.add('VALIGN', (0, i), (0, i), 'MIDDLE')
 
         table.setStyle(table_style)
         elements.append(table)

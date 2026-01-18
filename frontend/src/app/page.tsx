@@ -1,11 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -15,10 +23,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { getCases, createCase } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { getCases, createCase, deleteCase } from '@/lib/api';
 import { formatDatum, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
+import { SharedBadge } from '@/components/shared-badge';
 import type { Case } from '@/lib/types';
+
+type ViewMode = 'cards' | 'table';
+type SortField = 'naam' | 'einddatum' | 'created_at' | 'vorderingen_count' | 'deelbetalingen_count';
+type SortDirection = 'asc' | 'desc';
+type OwnershipFilter = 'all' | 'own' | 'shared';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -29,6 +50,38 @@ export default function Dashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // View mode (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [viewModeLoaded, setViewModeLoaded] = useState(false);
+
+  // Search & filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Delete state
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Load view mode from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('casesViewMode') as ViewMode | null;
+    if (saved === 'cards' || saved === 'table') {
+      setViewMode(saved);
+    }
+    setViewModeLoaded(true);
+  }, []);
+
+  // Persist view mode to localStorage
+  useEffect(() => {
+    if (viewModeLoaded) {
+      localStorage.setItem('casesViewMode', viewMode);
+    }
+  }, [viewMode, viewModeLoaded]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -74,6 +127,72 @@ export default function Dashboard() {
     }
   }
 
+  async function handleDeleteCase(id: string) {
+    setIsDeleting(true);
+    try {
+      await deleteCase(id);
+      setCases(cases.filter(c => c.id !== id));
+      setDeleteConfirmId(null);
+    } catch (err) {
+      setError('Kon case niet verwijderen');
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  // Sort handler
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort indicator
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <span className="text-muted-foreground/30 ml-1">↕</span>;
+    return <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  // Filtered and sorted cases
+  const filteredCases = useMemo(() => {
+    let result = cases;
+
+    // Ownership filter
+    if (ownershipFilter === 'own') {
+      result = result.filter(c => c.sharing?.is_owner !== false);
+    } else if (ownershipFilter === 'shared') {
+      result = result.filter(c => c.sharing?.is_owner === false);
+    }
+
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(c =>
+        c.naam.toLowerCase().includes(q) ||
+        c.klant_referentie?.toLowerCase().includes(q)
+      );
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      const aVal = a[sortField] ?? 0;
+      const bVal = b[sortField] ?? 0;
+      const cmp = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+
+    return result;
+  }, [cases, searchQuery, ownershipFilter, sortField, sortDirection]);
+
+  // Count of shared cases for badge
+  const sharedCount = useMemo(() => {
+    return cases.filter(c => c.sharing?.is_owner === false).length;
+  }, [cases]);
+
   if (authLoading || loading) {
     return (
       <div className="container py-8 max-w-6xl mx-auto px-4">
@@ -96,7 +215,7 @@ export default function Dashboard() {
   return (
     <div className="container py-8 max-w-6xl mx-auto px-4">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="font-serif text-3xl font-bold text-primary leading-tight">Uw Zaken</h1>
           <p className="text-muted-foreground mt-1">
@@ -141,6 +260,58 @@ export default function Dashboard() {
         </Dialog>
       </div>
 
+      {/* Toolbar */}
+      {cases.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">🔍</span>
+            <Input
+              placeholder="Zoek op naam of referentie..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* Ownership filter */}
+          <Select value={ownershipFilter} onValueChange={(v) => setOwnershipFilter(v as OwnershipFilter)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Filter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle zaken</SelectItem>
+              <SelectItem value="own">Mijn zaken</SelectItem>
+              <SelectItem value="shared">
+                Gedeeld met mij {sharedCount > 0 && `(${sharedCount})`}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* View toggle */}
+          <div className="flex border rounded-md">
+            <Button
+              variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-r-none px-3"
+              onClick={() => setViewMode('cards')}
+              title="Kaartweergave"
+            >
+              ▤
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-l-none px-3"
+              onClick={() => setViewMode('table')}
+              title="Tabelweergave"
+            >
+              ☰
+            </Button>
+          </div>
+        </div>
+      )}
+
       {error && (
         <Card className="mb-6 border-destructive">
           <CardContent className="pt-6">
@@ -169,9 +340,25 @@ export default function Dashboard() {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : filteredCases.length === 0 ? (
+        <Card className="border-dashed border-2">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">
+              Geen zaken gevonden voor &quot;{searchQuery}&quot;
+            </p>
+            <Button
+              variant="link"
+              className="mt-2"
+              onClick={() => setSearchQuery('')}
+            >
+              Zoekopdracht wissen
+            </Button>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'cards' ? (
+        /* Card View */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {cases.map((c) => (
+          {filteredCases.map((c) => (
             <Card
               key={c.id}
               className="cursor-pointer hover:border-primary hover:shadow-md transition-all group flex flex-col"
@@ -182,9 +369,15 @@ export default function Dashboard() {
                   <CardTitle className="font-serif text-lg leading-snug group-hover:text-primary transition-colors line-clamp-2">
                     {c.naam}
                   </CardTitle>
-                  <Badge variant="secondary" className="shrink-0 text-xs mt-0.5">
-                    {c.strategie}
-                  </Badge>
+                  <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                    <Badge variant="outline" className="text-xs" title="Vorderingen">
+                      {c.vorderingen_count ?? 0} V
+                    </Badge>
+                    <Badge variant="outline" className="text-xs" title="Betalingen">
+                      {c.deelbetalingen_count ?? 0} B
+                    </Badge>
+                    <SharedBadge sharing={c.sharing} />
+                  </div>
                 </div>
                 {c.klant_referentie && (
                   <CardDescription className="text-xs mt-1">
@@ -207,7 +400,113 @@ export default function Dashboard() {
             </Card>
           ))}
         </div>
+      ) : (
+        /* Table View */
+        <Card>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/80 select-none"
+                    onClick={() => handleSort('naam')}
+                  >
+                    Naam <SortIndicator field="naam" />
+                  </TableHead>
+                  <TableHead>Referentie</TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/80 select-none text-center"
+                    onClick={() => handleSort('vorderingen_count')}
+                  >
+                    Vord. <SortIndicator field="vorderingen_count" />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/80 select-none text-center"
+                    onClick={() => handleSort('deelbetalingen_count')}
+                  >
+                    Bet. <SortIndicator field="deelbetalingen_count" />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/80 select-none"
+                    onClick={() => handleSort('einddatum')}
+                  >
+                    Einddatum <SortIndicator field="einddatum" />
+                  </TableHead>
+                  <TableHead
+                    className="cursor-pointer hover:bg-muted/80 select-none"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    Aangemaakt <SortIndicator field="created_at" />
+                  </TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[80px] text-center">Acties</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCases.map((c) => (
+                  <TableRow
+                    key={c.id}
+                    className="cursor-pointer hover:bg-muted/30"
+                    onClick={() => router.push(`/case/${c.id}`)}
+                  >
+                    <TableCell className="font-medium">{c.naam}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {c.klant_referentie || '-'}
+                    </TableCell>
+                    <TableCell className="text-center">{c.vorderingen_count ?? 0}</TableCell>
+                    <TableCell className="text-center">{c.deelbetalingen_count ?? 0}</TableCell>
+                    <TableCell>{formatDatum(c.einddatum)}</TableCell>
+                    <TableCell>{formatDatum(c.created_at)}</TableCell>
+                    <TableCell>
+                      <SharedBadge sharing={c.sharing} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {c.sharing?.is_owner !== false && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirmId(c.id);
+                          }}
+                          title="Verwijderen"
+                        >
+                          🗑
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Zaak Verwijderen</DialogTitle>
+            <DialogDescription>
+              Weet u zeker dat u deze zaak wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+              Annuleren
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteConfirmId && handleDeleteCase(deleteConfirmId)}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Verwijderen...' : 'Verwijderen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

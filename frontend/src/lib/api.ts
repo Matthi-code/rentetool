@@ -12,6 +12,8 @@ import type {
   DeelbetalingCreate,
   BerekeningResponse,
   Snapshot,
+  Colleague,
+  CaseShare,
 } from './types';
 import { createClient } from './supabase/client';
 
@@ -67,8 +69,9 @@ async function fetchApi<T>(
 
 // Cases API
 
-export async function getCases(): Promise<Case[]> {
-  return fetchApi<Case[]>('/api/cases');
+export async function getCases(filter?: 'own' | 'shared'): Promise<Case[]> {
+  const params = filter ? `?filter=${filter}` : '';
+  return fetchApi<Case[]>(`/api/cases${params}`);
 }
 
 export async function getCase(id: string): Promise<CaseWithLines> {
@@ -254,4 +257,49 @@ export async function logUsage(data: UsageLogCreate): Promise<void> {
 
 export async function getUsageStats(): Promise<UsageStats> {
   return fetchApi<UsageStats>('/api/usage/stats');
+}
+
+// Sharing API
+
+export interface ColleagueCountResponse {
+  count: number;
+  domain: string | null;
+}
+
+export async function getColleagues(): Promise<Colleague[]> {
+  return fetchApi<Colleague[]>('/api/sharing/colleagues');
+}
+
+export async function getColleagueCount(): Promise<ColleagueCountResponse> {
+  return fetchApi<ColleagueCountResponse>('/api/sharing/colleagues/count');
+}
+
+export async function shareCase(
+  caseId: string,
+  data: { shared_with_user_id: string; permission: 'view' | 'edit' }
+): Promise<CaseShare> {
+  return fetchApi<CaseShare>(`/api/sharing/cases/${caseId}/share`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function unshareCase(caseId: string, userId: string): Promise<void> {
+  await fetchApi(`/api/sharing/cases/${caseId}/share/${userId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function getCaseShares(caseId: string): Promise<CaseShare[]> {
+  return fetchApi<CaseShare[]>(`/api/sharing/cases/${caseId}/shares`);
+}
+
+export async function updateSharePermission(
+  caseId: string,
+  userId: string,
+  permission: 'view' | 'edit'
+): Promise<void> {
+  await fetchApi(`/api/sharing/cases/${caseId}/share/${userId}?permission=${permission}`, {
+    method: 'PATCH',
+  });
 }

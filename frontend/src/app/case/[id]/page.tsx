@@ -51,6 +51,8 @@ import {
 } from '@/lib/api';
 import { formatBedrag, formatDatum, formatPercentage, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
+import { ShareCaseDialog } from '@/components/share-case-dialog';
+import { SharedBadge } from '@/components/shared-badge';
 import {
   RENTETYPE_LABELS,
   RENTETYPE_SHORT,
@@ -103,6 +105,10 @@ export default function CaseDetailPage() {
     datum: getToday(),
     aangewezen: [] as string[],
   });
+
+  // Computed: Can the user edit this case?
+  const isOwner = caseData?.sharing?.is_owner !== false;
+  const canEdit = isOwner || caseData?.sharing?.my_permission === 'edit';
 
   const resetVorderingForm = () => {
     setVorderingForm({
@@ -440,6 +446,14 @@ export default function CaseDetailPage() {
 
   return (
     <div className="container py-8 max-w-5xl mx-auto px-4">
+      {/* Read-only Banner */}
+      {!canEdit && (
+        <div className="bg-blue-50 border-b border-blue-200 text-blue-800 text-center py-2 px-4 text-sm">
+          U bekijkt een gedeelde zaak (alleen lezen). Gedeeld door{' '}
+          <strong>{caseData.sharing?.shared_by?.display_name || caseData.sharing?.shared_by?.email?.split('@')[0] || 'onbekend'}</strong>
+        </div>
+      )}
+
       {/* Sticky Header */}
       <div className="sticky top-16 z-40 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -449,8 +463,16 @@ export default function CaseDetailPage() {
             </Button>
             <div className="h-5 w-px bg-border hidden sm:block" />
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-primary truncate">{caseData.naam}</h1>
+            <SharedBadge sharing={caseData.sharing} showPermission />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
+            {isOwner && (
+              <ShareCaseDialog caseId={caseId} caseName={caseData.naam} onShareChange={loadCase}>
+                <Button variant="outline" size="lg" className="shadow-sm">
+                  Delen
+                </Button>
+              </ShareCaseDialog>
+            )}
             <Button
               size="lg"
               onClick={handleCalculate}
@@ -509,11 +531,12 @@ export default function CaseDetailPage() {
                 value={caseData.einddatum}
                 onChange={(e) => handleUpdateEinddatum(e.target.value)}
                 className="w-full"
+                disabled={!canEdit}
               />
             </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Toerekeningsstrategie</label>
-              <Select value={caseData.strategie} onValueChange={(v) => handleUpdateStrategie(v as 'A' | 'B')}>
+              <Select value={caseData.strategie} onValueChange={(v) => handleUpdateStrategie(v as 'A' | 'B')} disabled={!canEdit}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -538,9 +561,11 @@ export default function CaseDetailPage() {
                 : `${caseData.vorderingen.length} ${caseData.vorderingen.length === 1 ? 'vordering' : 'vorderingen'}`}
             </p>
           </div>
-          <Button size="sm" onClick={openAddVordering} className="shadow-sm">
-            + Toevoegen
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={openAddVordering} className="shadow-sm">
+              + Toevoegen
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {caseData.vorderingen.length === 0 ? (
@@ -548,9 +573,11 @@ export default function CaseDetailPage() {
               <p className="text-muted-foreground mb-3">
                 Nog geen vorderingen toegevoegd
               </p>
-              <Button variant="outline" onClick={openAddVordering}>
-                + Eerste vordering toevoegen
-              </Button>
+              {canEdit && (
+                <Button variant="outline" onClick={openAddVordering}>
+                  + Eerste vordering toevoegen
+                </Button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -562,7 +589,7 @@ export default function CaseDetailPage() {
                     <TableHead className="font-semibold">Startdatum</TableHead>
                     <TableHead className="font-semibold">Rentetype</TableHead>
                     <TableHead className="text-right font-semibold">Kosten</TableHead>
-                    <TableHead className="w-[100px] text-center font-semibold">Acties</TableHead>
+                    {canEdit && <TableHead className="w-[100px] text-center font-semibold">Acties</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -578,32 +605,34 @@ export default function CaseDetailPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(v.kosten)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-center opacity-50 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditVordering(v)}
-                            title="Bewerken"
-                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
-                          >
-                            <span className="text-base">✎</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`Vordering "${v.kenmerk}" verwijderen?`)) {
-                                handleDeleteVordering(v.id);
-                              }
-                            }}
-                            title="Verwijderen"
-                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <span className="text-base">×</span>
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {canEdit && (
+                        <TableCell>
+                          <div className="flex gap-1 justify-center opacity-50 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditVordering(v)}
+                              title="Bewerken"
+                              className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                            >
+                              <span className="text-base">✎</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`Vordering "${v.kenmerk}" verwijderen?`)) {
+                                  handleDeleteVordering(v.id);
+                                }
+                              }}
+                              title="Verwijderen"
+                              className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <span className="text-base">×</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -624,9 +653,11 @@ export default function CaseDetailPage() {
                 : `${caseData.deelbetalingen.length} ${caseData.deelbetalingen.length === 1 ? 'betaling' : 'betalingen'}`}
             </p>
           </div>
-          <Button size="sm" onClick={openAddDeelbetaling} className="shadow-sm">
-            + Toevoegen
-          </Button>
+          {canEdit && (
+            <Button size="sm" onClick={openAddDeelbetaling} className="shadow-sm">
+              + Toevoegen
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {caseData.deelbetalingen.length === 0 ? (
@@ -644,7 +675,7 @@ export default function CaseDetailPage() {
                     <TableHead className="text-right font-semibold">Bedrag</TableHead>
                     <TableHead className="font-semibold">Datum</TableHead>
                     <TableHead className="font-semibold">Aangewezen aan</TableHead>
-                    <TableHead className="w-[100px] text-center font-semibold">Acties</TableHead>
+                    {canEdit && <TableHead className="w-[100px] text-center font-semibold">Acties</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -660,32 +691,34 @@ export default function CaseDetailPage() {
                           <span className="text-muted-foreground text-sm italic">via strategie</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 justify-center opacity-50 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditDeelbetaling(d)}
-                            title="Bewerken"
-                            className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
-                          >
-                            <span className="text-base">✎</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              if (confirm(`Deelbetaling "${d.kenmerk || formatDatum(d.datum)}" verwijderen?`)) {
-                                handleDeleteDeelbetaling(d.id);
-                              }
-                            }}
-                            title="Verwijderen"
-                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <span className="text-base">×</span>
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {canEdit && (
+                        <TableCell>
+                          <div className="flex gap-1 justify-center opacity-50 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDeelbetaling(d)}
+                              title="Bewerken"
+                              className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                            >
+                              <span className="text-base">✎</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`Deelbetaling "${d.kenmerk || formatDatum(d.datum)}" verwijderen?`)) {
+                                  handleDeleteDeelbetaling(d.id);
+                                }
+                              }}
+                              title="Verwijderen"
+                              className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <span className="text-base">×</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

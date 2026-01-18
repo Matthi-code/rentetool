@@ -1,8 +1,9 @@
 """
 Case models
 """
+from __future__ import annotations
 from datetime import date, datetime
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field
 
 from .vordering import VorderingResponse
@@ -47,3 +48,11 @@ class CaseWithLines(CaseResponse):
     """Case with all vorderingen and deelbetalingen."""
     vorderingen: List[VorderingResponse] = []
     deelbetalingen: List[DeelbetalingResponse] = []
+    sharing: Optional[Any] = None  # CaseShareInfo, avoid circular import
+
+
+class CaseListResponse(CaseResponse):
+    """Response model for case list with counts and sharing info."""
+    vorderingen_count: int = 0
+    deelbetalingen_count: int = 0
+    sharing: Optional[Any] = None  # CaseShareInfo, avoid circular import

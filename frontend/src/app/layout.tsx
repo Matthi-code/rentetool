@@ -48,7 +48,7 @@ export default function RootLayout({
                 <p className="text-xs max-w-2xl mx-auto">
                   <strong>Disclaimer:</strong> De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten.
                 </p>
-                <p>Rentetool - Wettelijke rente conform art. 6:119/119a BW</p>
+                <p>Rentetool v0.1 - Wettelijke rente conform art. 6:119/119a BW</p>
               </div>
             </footer>
           </div>

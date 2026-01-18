@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api import cases, berekening, snapshots, usage
+from app.api import cases, berekening, snapshots, usage, sharing
 
 settings = get_settings()
 
@@ -32,6 +32,7 @@ app.include_router(cases.router, prefix="/api/cases", tags=["cases"])
 app.include_router(berekening.router, prefix="/api", tags=["berekening"])
 app.include_router(snapshots.router, prefix="/api/snapshots", tags=["snapshots"])
 app.include_router(usage.router)
+app.include_router(sharing.router, prefix="/api/sharing", tags=["sharing"])
 
 
 @app.get("/")

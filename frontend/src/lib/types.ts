@@ -40,6 +40,35 @@ export interface DeelbetalingCreate {
   aangewezen: string[];
 }
 
+// Sharing types
+export interface Colleague {
+  id: string;
+  email: string;
+  display_name?: string;
+}
+
+export interface ColleagueWithPermission extends Colleague {
+  permission: 'view' | 'edit';
+}
+
+export interface CaseShareInfo {
+  is_shared: boolean;
+  is_owner: boolean;
+  shared_by?: Colleague;
+  shared_with: ColleagueWithPermission[];
+  my_permission?: 'view' | 'edit';
+}
+
+export interface CaseShare {
+  id: string;
+  case_id: string;
+  shared_with_user_id: string;
+  shared_by_user_id: string;
+  permission: 'view' | 'edit';
+  created_at: string;
+  shared_with_user?: Colleague;
+}
+
 export interface Case {
   id: string;
   naam: string;
@@ -48,6 +77,11 @@ export interface Case {
   strategie: 'A' | 'B';
   created_at: string;
   updated_at: string;
+  // Optional counts for list view
+  vorderingen_count?: number;
+  deelbetalingen_count?: number;
+  // Sharing info
+  sharing?: CaseShareInfo;
 }
 
 export interface CaseCreate {
