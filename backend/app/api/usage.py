@@ -36,7 +36,7 @@ class UsageStats(BaseModel):
 
 
 @router.post("/log")
-async def log_usage(log: UsageLogCreate, user=Depends(get_current_user)):
+async def log_usage(log: UsageLogCreate, user_id: str = Depends(get_current_user)):
     """Log a usage event (calculation or PDF view)."""
     if log.action_type not in ['calculation', 'pdf_view']:
         raise HTTPException(status_code=400, detail="Invalid action_type. Must be 'calculation' or 'pdf_view'")
@@ -44,7 +44,7 @@ async def log_usage(log: UsageLogCreate, user=Depends(get_current_user)):
     supabase = get_supabase_client()
 
     data = {
-        "user_id": user["id"],
+        "user_id": user_id,
         "action_type": log.action_type,
     }
 
@@ -62,12 +62,12 @@ async def log_usage(log: UsageLogCreate, user=Depends(get_current_user)):
 
 
 @router.get("/stats", response_model=UsageStats)
-async def get_usage_stats(user=Depends(get_current_user)):
+async def get_usage_stats(user_id: str = Depends(get_current_user)):
     """Get usage statistics for the current user."""
     supabase = get_supabase_client()
 
     # Get all logs for user
-    result = supabase.table("usage_logs").select("*").eq("user_id", user["id"]).execute()
+    result = supabase.table("usage_logs").select("*").eq("user_id", user_id).execute()
 
     logs = result.data or []
 
@@ -89,12 +89,12 @@ async def get_usage_stats(user=Depends(get_current_user)):
 async def get_usage_logs(
     limit: int = 100,
     action_type: Optional[str] = None,
-    user=Depends(get_current_user)
+    user_id: str = Depends(get_current_user)
 ):
     """Get usage logs for the current user."""
     supabase = get_supabase_client()
 
-    query = supabase.table("usage_logs").select("*").eq("user_id", user["id"])
+    query = supabase.table("usage_logs").select("*").eq("user_id", user_id)
 
     if action_type:
         query = query.eq("action_type", action_type)
