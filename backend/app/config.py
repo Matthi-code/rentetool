@@ -17,7 +17,12 @@ class Settings(BaseSettings):
     # App
     app_name: str = "Rentetool"
     debug: bool = True  # Default to debug for development
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:3001"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://frontend-gamma-three-vk3oovp0l2.vercel.app",
+        "https://rentetool.vercel.app",
+    ]
 
     @property
     def effective_service_key(self) -> str:
