@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Merriweather } from "next/font/google";
+import { Inter, Merriweather, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { Header } from "@/components/header";
@@ -15,6 +15,11 @@ const merriweather = Merriweather({
   variable: "--font-merriweather",
 });
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
+
 export const metadata: Metadata = {
   title: "Rentetool - Wettelijke Rente Calculator",
   description: "Nederlandse wettelijke rente calculator conform het Burgerlijk Wetboek. Berekent rente op vorderingen met ondersteuning voor deelbetalingen, kapitalisatie en meerdere rentetypes.",
@@ -27,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="nl">
-      <body className={`${inter.variable} ${merriweather.variable} font-sans antialiased min-h-screen bg-background`}>
+      <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} font-sans antialiased min-h-screen bg-background`}>
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
             {/* Demo banner */}
