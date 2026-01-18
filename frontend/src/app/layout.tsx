@@ -43,9 +43,9 @@ export default function RootLayout({
             <main className="flex-1">
               {children}
             </main>
-            <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-              <div className="container space-y-3">
-                <p className="text-xs max-w-2xl mx-auto">
+            <footer className="border-t py-6 text-sm text-muted-foreground">
+              <div className="max-w-6xl mx-auto px-4 space-y-3 text-center">
+                <p className="text-xs">
                   <strong>Disclaimer:</strong> De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten.
                 </p>
                 <p>Rentetool v0.1 - Wettelijke rente conform art. 6:119/119a BW</p>
