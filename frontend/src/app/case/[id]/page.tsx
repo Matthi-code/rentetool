@@ -47,6 +47,7 @@ import {
   berekenRente,
   createSnapshot,
   getSnapshotPdf,
+  logUsage,
 } from '@/lib/api';
 import { formatBedrag, formatDatum, formatPercentage, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
@@ -156,6 +157,8 @@ export default function CaseDetailPage() {
     try {
       const res = await berekenRente(caseData);
       setResult(res);
+      // Log usage
+      logUsage({ action_type: 'calculation', case_id: caseId, case_name: caseData.naam });
       // Scroll to results after a short delay
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -179,6 +182,9 @@ export default function CaseDetailPage() {
 
       // Then get the PDF blob
       const blob = await getSnapshotPdf(snapshot.id);
+
+      // Log usage
+      logUsage({ action_type: 'pdf_view', case_id: caseId, case_name: caseData.naam });
 
       // Create URL for preview
       const url = window.URL.createObjectURL(blob);

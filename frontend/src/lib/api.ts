@@ -224,3 +224,34 @@ export interface RenteTabelEntry {
 export async function getRentetabel(): Promise<RenteTabelEntry[]> {
   return fetchApi<RenteTabelEntry[]>('/api/rentetabel');
 }
+
+// Usage Tracking API
+
+export interface UsageLogCreate {
+  action_type: 'calculation' | 'pdf_view';
+  case_id?: string;
+  case_name?: string;
+}
+
+export interface UsageStats {
+  total_calculations: number;
+  total_pdf_views: number;
+  last_calculation: string | null;
+  last_pdf_view: string | null;
+}
+
+export async function logUsage(data: UsageLogCreate): Promise<void> {
+  try {
+    await fetchApi('/api/usage/log', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  } catch (error) {
+    // Don't throw on usage logging errors - it's not critical
+    console.warn('Failed to log usage:', error);
+  }
+}
+
+export async function getUsageStats(): Promise<UsageStats> {
+  return fetchApi<UsageStats>('/api/usage/stats');
+}
