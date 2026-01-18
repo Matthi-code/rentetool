@@ -1,0 +1,7 @@
+{
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://rentetool-api.fly.dev",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://mgdpvjnvchgqhsrddnoi.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nZHB2am52Y2hncWhzcmRkbm9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3MDk3MzcsImV4cCI6MjA4NDI4NTczN30.GveLGLTr9rf64i0t7xwwitR8gWMv0wAVhzODIYk4Oxs"
+  }
+}
