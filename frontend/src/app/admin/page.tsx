@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { checkAdmin, getAdminStats, getAdminUsers, getAdminCases, getAdminUsageLogs, type AdminStats, type UserStats, type AdminCase, type AdminUsageLog } from '@/lib/api';
-import { formatDatum, formatBedrag } from '@/lib/format';
+import { formatDatum } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 
 type ActiveView = 'users' | 'cases' | 'calculations' | 'pdf_views';
