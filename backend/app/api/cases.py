@@ -37,6 +37,15 @@ def can_edit_case(db, case_id: str, user_id: str) -> bool:
     return bool(share.data)
 
 
+def _sharing_tables_exist(db) -> bool:
+    """Check if sharing feature tables exist."""
+    try:
+        db.table('case_shares').select('id').limit(1).execute()
+        return True
+    except:
+        return False
+
+
 @router.get("", response_model=List[CaseListResponse])
 async def list_cases(
     user_id: str = Depends(get_current_user),
@@ -46,33 +55,40 @@ async def list_cases(
     db = get_db()
     result = []
 
+    # Check if sharing feature is available
+    sharing_enabled = _sharing_tables_exist(db)
+
     # Get owned cases (unless filtering for shared only)
     if filter != 'shared':
         owned_response = db.table('cases').select(
             '*, vorderingen(count), deelbetalingen(count)'
         ).eq('user_id', user_id).order('created_at', desc=True).execute()
 
-        # Get sharing info for owned cases
-        owned_case_ids = [c['id'] for c in owned_response.data] if owned_response.data else []
+        # Get sharing info for owned cases (only if sharing is enabled)
         shares_by_case = {}
-        if owned_case_ids:
-            shares = db.table('case_shares').select('*').in_('case_id', owned_case_ids).execute()
-            if shares.data:
-                # Get user details for shared_with users
-                shared_user_ids = list(set(s['shared_with_user_id'] for s in shares.data))
-                users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_user_ids).execute()
-                users_map = {u['id']: u for u in users.data}
+        if sharing_enabled:
+            owned_case_ids = [c['id'] for c in owned_response.data] if owned_response.data else []
+            if owned_case_ids:
+                try:
+                    shares = db.table('case_shares').select('*').in_('case_id', owned_case_ids).execute()
+                    if shares.data:
+                        # Get user details for shared_with users
+                        shared_user_ids = list(set(s['shared_with_user_id'] for s in shares.data))
+                        users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_user_ids).execute()
+                        users_map = {u['id']: u for u in users.data}
 
-                for share in shares.data:
-                    cid = share['case_id']
-                    if cid not in shares_by_case:
-                        shares_by_case[cid] = []
-                    user_data = users_map.get(share['shared_with_user_id'])
-                    if user_data:
-                        shares_by_case[cid].append(ColleagueWithPermission(
-                            **user_data,
-                            permission=share['permission']
-                        ))
+                        for share in shares.data:
+                            cid = share['case_id']
+                            if cid not in shares_by_case:
+                                shares_by_case[cid] = []
+                            user_data = users_map.get(share['shared_with_user_id'])
+                            if user_data:
+                                shares_by_case[cid].append(ColleagueWithPermission(
+                                    **user_data,
+                                    permission=share['permission']
+                                ))
+                except:
+                    pass  # Sharing not available
 
         # Process owned cases
         for row in owned_response.data:
@@ -94,48 +110,51 @@ async def list_cases(
                 sharing=sharing_info
             ))
 
-    # Get shared cases (unless filtering for own only)
-    if filter != 'own':
-        shared_response = db.table('case_shares').select(
-            'case_id, permission, shared_by_user_id'
-        ).eq('shared_with_user_id', user_id).execute()
+    # Get shared cases (unless filtering for own only) - only if sharing is enabled
+    if filter != 'own' and sharing_enabled:
+        try:
+            shared_response = db.table('case_shares').select(
+                'case_id, permission, shared_by_user_id'
+            ).eq('shared_with_user_id', user_id).execute()
 
-        if shared_response.data:
-            shared_case_ids = [s['case_id'] for s in shared_response.data]
-            shared_by_map = {s['case_id']: {'user_id': s['shared_by_user_id'], 'permission': s['permission']}
-                           for s in shared_response.data}
+            if shared_response.data:
+                shared_case_ids = [s['case_id'] for s in shared_response.data]
+                shared_by_map = {s['case_id']: {'user_id': s['shared_by_user_id'], 'permission': s['permission']}
+                               for s in shared_response.data}
 
-            # Get the actual case data
-            cases_response = db.table('cases').select(
-                '*, vorderingen(count), deelbetalingen(count)'
-            ).in_('id', shared_case_ids).order('created_at', desc=True).execute()
+                # Get the actual case data
+                cases_response = db.table('cases').select(
+                    '*, vorderingen(count), deelbetalingen(count)'
+                ).in_('id', shared_case_ids).order('created_at', desc=True).execute()
 
-            # Get shared_by user details
-            shared_by_user_ids = list(set(s['shared_by_user_id'] for s in shared_response.data))
-            shared_by_users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_by_user_ids).execute()
-            shared_by_users_map = {u['id']: u for u in shared_by_users.data}
+                # Get shared_by user details
+                shared_by_user_ids = list(set(s['shared_by_user_id'] for s in shared_response.data))
+                shared_by_users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_by_user_ids).execute()
+                shared_by_users_map = {u['id']: u for u in shared_by_users.data}
 
-            for row in cases_response.data:
-                vord_count = row.get('vorderingen', [{}])[0].get('count', 0) if row.get('vorderingen') else 0
-                deel_count = row.get('deelbetalingen', [{}])[0].get('count', 0) if row.get('deelbetalingen') else 0
+                for row in cases_response.data:
+                    vord_count = row.get('vorderingen', [{}])[0].get('count', 0) if row.get('vorderingen') else 0
+                    deel_count = row.get('deelbetalingen', [{}])[0].get('count', 0) if row.get('deelbetalingen') else 0
 
-                case_data = {k: v for k, v in row.items() if k not in ('vorderingen', 'deelbetalingen')}
-                share_info = shared_by_map.get(row['id'], {})
-                shared_by_user = shared_by_users_map.get(share_info.get('user_id'))
+                    case_data = {k: v for k, v in row.items() if k not in ('vorderingen', 'deelbetalingen')}
+                    share_info = shared_by_map.get(row['id'], {})
+                    shared_by_user = shared_by_users_map.get(share_info.get('user_id'))
 
-                sharing_info = CaseShareInfo(
-                    is_shared=True,
-                    is_owner=False,
-                    shared_by=ColleagueResponse(**shared_by_user) if shared_by_user else None,
-                    my_permission=share_info.get('permission')
-                )
+                    sharing_info = CaseShareInfo(
+                        is_shared=True,
+                        is_owner=False,
+                        shared_by=ColleagueResponse(**shared_by_user) if shared_by_user else None,
+                        my_permission=share_info.get('permission')
+                    )
 
-                result.append(CaseListResponse(
-                    **case_data,
-                    vorderingen_count=vord_count,
-                    deelbetalingen_count=deel_count,
-                    sharing=sharing_info
-                ))
+                    result.append(CaseListResponse(
+                        **case_data,
+                        vorderingen_count=vord_count,
+                        deelbetalingen_count=deel_count,
+                        sharing=sharing_info
+                    ))
+        except:
+            pass  # Sharing not available
 
     # Sort by created_at descending
     result.sort(key=lambda x: x.created_at, reverse=True)
@@ -180,42 +199,57 @@ async def get_case(case_id: str, user_id: str = Depends(get_current_user)):
 
     # If not owner, check if shared with user
     sharing_info = None
+    sharing_tables_exist = _sharing_tables_exist(db)
+
     if is_owner:
-        # Get sharing info for owner
-        shares = db.table('case_shares').select('*').eq('case_id', case_id).execute()
-        shared_with = []
-        if shares.data:
-            shared_user_ids = [s['shared_with_user_id'] for s in shares.data]
-            users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_user_ids).execute()
-            users_map = {u['id']: u for u in users.data}
-            for s in shares.data:
-                user_data = users_map.get(s['shared_with_user_id'])
-                if user_data:
-                    shared_with.append(ColleagueWithPermission(
-                        **user_data,
-                        permission=s['permission']
-                    ))
-        sharing_info = CaseShareInfo(
-            is_shared=len(shared_with) > 0,
-            is_owner=True,
-            shared_with=shared_with
-        )
+        # Owner always has access
+        if sharing_tables_exist:
+            # Get sharing info for owner
+            shares = db.table('case_shares').select('*').eq('case_id', case_id).execute()
+            shared_with = []
+            if shares.data:
+                shared_user_ids = [s['shared_with_user_id'] for s in shares.data]
+                users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_user_ids).execute()
+                users_map = {u['id']: u for u in users.data}
+                for s in shares.data:
+                    user_data = users_map.get(s['shared_with_user_id'])
+                    if user_data:
+                        shared_with.append(ColleagueWithPermission(
+                            **user_data,
+                            permission=s['permission']
+                        ))
+            sharing_info = CaseShareInfo(
+                is_shared=len(shared_with) > 0,
+                is_owner=True,
+                shared_with=shared_with
+            )
+        else:
+            # No sharing tables - provide default sharing info
+            sharing_info = CaseShareInfo(
+                is_shared=False,
+                is_owner=True,
+                shared_with=[]
+            )
     else:
-        # Check if shared with this user
-        share = db.table('case_shares').select('*, user_profiles!shared_by_user_id(id, email, display_name)').eq(
-            'case_id', case_id
-        ).eq('shared_with_user_id', user_id).execute()
+        # Not owner - check if shared (only if sharing tables exist)
+        if sharing_tables_exist:
+            share = db.table('case_shares').select('*, user_profiles!shared_by_user_id(id, email, display_name)').eq(
+                'case_id', case_id
+            ).eq('shared_with_user_id', user_id).execute()
 
-        if not share.data:
+            if not share.data:
+                raise HTTPException(status_code=404, detail="Case not found")
+
+            shared_by_user = share.data[0].get('user_profiles')
+            sharing_info = CaseShareInfo(
+                is_shared=True,
+                is_owner=False,
+                shared_by=ColleagueResponse(**shared_by_user) if shared_by_user else None,
+                my_permission=share.data[0]['permission']
+            )
+        else:
+            # No sharing tables - user can't access others' cases
             raise HTTPException(status_code=404, detail="Case not found")
-
-        shared_by_user = share.data[0].get('user_profiles')
-        sharing_info = CaseShareInfo(
-            is_shared=True,
-            is_owner=False,
-            shared_by=ColleagueResponse(**shared_by_user) if shared_by_user else None,
-            my_permission=share.data[0]['permission']
-        )
 
     # Get vorderingen
     vord_response = db.table('vorderingen').select('*').eq('case_id', case_id).order('volgorde').execute()

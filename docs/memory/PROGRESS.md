@@ -1,5 +1,35 @@
 # Progress Log
 
+## 2026-01-18 — Checkpoint (22:45)
+
+**Gedaan deze sessie:**
+- Case sharing feature database migratie uitgevoerd:
+  - `user_profiles` tabel aangemaakt (email domein voor collega-detectie)
+  - `case_shares` tabel aangemaakt (delen met view/edit permissies)
+  - RLS policies voor beveiliging
+  - Backfill bestaande users
+- Backend graceful degradation toegevoegd:
+  - `list_cases()` en `get_case()` werken nu ook zonder sharing tabellen
+  - `_sharing_tables_exist()` helper functie
+- Frontend .env.local gefixed (wees naar localhost ipv productie)
+- PDF verbeteringen:
+  - Nieuwe iconen voor kapitalisatie en betaling toegevoegd
+  - Lettergrootte resultaatblokken verkleind (10/11 ipv 12/14)
+- Versienummer v0.1 toegevoegd in footer
+
+**Huidige staat:**
+- App volledig functioneel lokaal
+- Sharing tabellen aangemaakt in Supabase
+- 2 users in user_profiles (zelfde domein gcon.nl)
+- PDF layout verbeterd en getest
+
+**Volgende stap:**
+- Sharing UI implementeren (ShareCaseDialog component)
+- SharedBadge in dashboard toevoegen
+- Deploy naar productie met nieuwe sharing feature
+
+---
+
 ## 2026-01-18 — Checkpoint (20:00)
 
 **Gedaan tot nu toe:**
@@ -22,12 +52,3 @@
   - Backend API endpoints: `/api/usage/log`, `/api/usage/stats`, `/api/usage/logs`
   - Frontend logging bij berekening en PDF view
   - Per gebruiker worden berekeningen en PDF views gelogd met datum/tijdstip
-
-**Huidige staat:**
-- App is volledig functioneel
-- Beide omgevingen (backend + frontend) zijn live
-- Usage tracking werkt (getest en gevalideerd)
-
-**Volgende stap:**
-- Wachten op gebruiker feedback over PDF layout verbeteringen
-- Eventuele verdere UI/UX verbeteringen

@@ -285,7 +285,7 @@ De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten."""
     )
 
     disclaimer_data = [[Paragraph(disclaimer_text, disclaimer_style)]]
-    disclaimer_table = Table(disclaimer_data, colWidths=[17*cm])
+    disclaimer_table = Table(disclaimer_data, colWidths=[18*cm])
     disclaimer_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fef3c7")),  # Amber light
         ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#f59e0b")),  # Amber border
@@ -358,10 +358,10 @@ def _get_styles():
     styles.add(ParagraphStyle(
         'VorderingHeader',
         fontName='Times-Bold',  # Serif for vordering headers
-        fontSize=11,
+        fontSize=10,
         textColor=PRIMARY_COLOR,
-        spaceBefore=8,
-        spaceAfter=4,
+        spaceBefore=6,
+        spaceAfter=3,
     ))
 
     return styles
@@ -398,7 +398,7 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
     if not vorderingen:
         return Paragraph("Geen vorderingen.", styles['Muted'])
 
-    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=9, alignment=TA_RIGHT)
+    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
 
     header = ["Kenmerk", "Bedrag", "Datum", "Type", "Kosten"]
     data = [header]
@@ -417,7 +417,8 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
             Paragraph(format_bedrag(v.get("kosten", 0)), mono_style)
         ])
 
-    col_widths = [3.5*cm, 2.5*cm, 2.5*cm, 4.5*cm, 2.5*cm]
+    # Full width: 18cm
+    col_widths = [4*cm, 3*cm, 2.5*cm, 5.5*cm, 3*cm]
     table = Table(data, colWidths=col_widths)
     table.setStyle(_get_input_table_style(len(data)))
     return table
@@ -425,7 +426,7 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
 
 def _build_deelbetalingen_invoer_table(deelbetalingen: List[Dict], styles) -> Table:
     """Build deelbetalingen input table matching webapp."""
-    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=9, alignment=TA_RIGHT)
+    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
 
     header = ["Kenmerk", "Bedrag", "Datum", "Aangewezen aan"]
     data = [header]
@@ -441,7 +442,8 @@ def _build_deelbetalingen_invoer_table(deelbetalingen: List[Dict], styles) -> Ta
             aangewezen_str
         ])
 
-    col_widths = [3*cm, 2.5*cm, 2.5*cm, 7.5*cm]
+    # Full width: 18cm
+    col_widths = [3.5*cm, 3*cm, 2.5*cm, 9*cm]
     table = Table(data, colWidths=col_widths)
     table.setStyle(_get_input_table_style(len(data)))
     return table
@@ -454,11 +456,11 @@ def _build_summary_blocks(totalen: Dict, styles) -> Table:
         if is_primary:
             label_color = "#ffffffcc"  # White with opacity
             value_color = "#ffffff"
-            value_size = 14
+            value_size = 11
         else:
             label_color = "#64748b"
             value_color = "#1e293b"
-            value_size = 12
+            value_size = 10
 
         # Use Courier (monospace) for amounts like webapp uses JetBrains Mono
         content = f"""<font size="7" color="{label_color}">{label}</font><br/>
@@ -472,7 +474,8 @@ def _build_summary_blocks(totalen: Dict, styles) -> Table:
         make_cell("TOTAAL OPENSTAAND", format_bedrag(totalen.get("openstaand", 0)), is_primary=True),
     ]]
 
-    col_width = 4.25*cm
+    # Full width: 18cm / 4 = 4.5cm per block
+    col_width = 4.5*cm
     table = Table(data, colWidths=[col_width, col_width, col_width, col_width])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (2, 0), MUTED_BG),
@@ -501,7 +504,7 @@ def _build_afgelost_block(totalen: Dict, styles) -> Table:
 <font size="9" color="#16a34a">Rente:</font> <font face="Courier"><b>{rnt}</b></font>"""
 
     data = [[Paragraph(content, ParagraphStyle('Afgelost', leading=14))]]
-    table = Table(data, colWidths=[17*cm])
+    table = Table(data, colWidths=[18*cm])
     table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), SUCCESS_BG),
         ('LEFTPADDING', (0, 0), (-1, -1), 12),
@@ -515,10 +518,10 @@ def _build_afgelost_block(totalen: Dict, styles) -> Table:
 
 def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, styles) -> Table:
     """Build vordering summary table exactly like webapp with monospace numbers."""
-    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
-    mono_green = ParagraphStyle('MonoGreen', fontName='Courier', fontSize=8, alignment=TA_RIGHT, textColor=SUCCESS_COLOR)
-    mono_bold = ParagraphStyle('MonoBold', fontName='Courier-Bold', fontSize=8, alignment=TA_RIGHT)
-    mono_primary = ParagraphStyle('MonoPrimary', fontName='Courier-Bold', fontSize=8, alignment=TA_RIGHT, textColor=PRIMARY_COLOR)
+    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=7, alignment=TA_RIGHT)
+    mono_green = ParagraphStyle('MonoGreen', fontName='Courier', fontSize=7, alignment=TA_RIGHT, textColor=SUCCESS_COLOR)
+    mono_bold = ParagraphStyle('MonoBold', fontName='Courier-Bold', fontSize=7, alignment=TA_RIGHT)
+    mono_primary = ParagraphStyle('MonoPrimary', fontName='Courier-Bold', fontSize=7, alignment=TA_RIGHT, textColor=PRIMARY_COLOR)
 
     header = ["Vordering", "Hoofdsom", "Kosten", "Rente", "Afg. HS", "Afg. Kst", "Afg. Rnt", "Openstaand"]
     data = [header]
@@ -551,18 +554,19 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
         Paragraph(format_bedrag(totalen.get("openstaand", 0)), mono_primary),
     ])
 
-    col_widths = [3*cm, 2*cm, 1.7*cm, 2.2*cm, 1.7*cm, 1.7*cm, 1.7*cm, 2.2*cm]
+    # Full width: 18cm
+    col_widths = [3.2*cm, 2.3*cm, 1.8*cm, 2.5*cm, 2*cm, 2*cm, 2*cm, 2.2*cm]
     table = Table(data, colWidths=col_widths)
 
     style = TableStyle([
         # Header
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
         ('BACKGROUND', (0, 0), (-1, 0), MUTED_BG),
         ('TEXTCOLOR', (0, 0), (-1, 0), MUTED_TEXT),
 
         # Body - let Paragraph handle fonts for number columns
-        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('FONTSIZE', (0, 1), (-1, -1), 7),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
 
         # Totaal row
@@ -572,10 +576,10 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
 
         # Grid
         ('GRID', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ])
 
     # Green background for VOLDAAN rows
@@ -591,6 +595,9 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
     """Build compact specification for one vordering with payment rows."""
     elements = []
 
+    # Full available width: A4 = 21cm, margins 1.5cm each side = 18cm exactly
+    FULL_WIDTH = 18*cm
+
     kenmerk = v.get("kenmerk", "")
     status = v.get("status", "OPEN")
     openstaand = format_bedrag(v.get("openstaand", 0))
@@ -601,50 +608,49 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
     rentetype_label = RENTETYPE_SHORT.get(rentetype, f"Type {rentetype}")
     opslag = vord_input.get("opslag")
     opslag_str = format_opslag(opslag) if opslag else ""
-    rentetype_badge = f'<font size="8" color="#64748b">[{rentetype_label}{" " + opslag_str if opslag_str else ""}]</font>'
+    rentetype_badge = f'<font size="7" color="#64748b">[{rentetype_label}{" " + opslag_str if opslag_str else ""}]</font>'
 
     # Status badge
     if status == "VOLDAAN":
         status_badge = f'<font color="#16a34a">[VOLDAAN]</font>'
         if voldaan_datum:
-            status_badge += f' <font size="8" color="#64748b">(op {format_datum(voldaan_datum)})</font>'
+            status_badge += f' <font size="7" color="#64748b">(op {format_datum(voldaan_datum)})</font>'
     else:
         status_badge = f'<font color="#1e3a5f">[OPEN]</font>'
 
     # Header line with rentetype
-    header_text = f'<b>{kenmerk}</b> {rentetype_badge} {status_badge}  <font size="9">Openstaand: <font face="Courier"><b>{openstaand}</b></font></font>'
+    header_text = f'<b>{kenmerk}</b> {rentetype_badge} {status_badge}  <font size="8">Openstaand: <font face="Courier"><b>{openstaand}</b></font></font>'
     elements.append(Paragraph(header_text, styles['VorderingHeader']))
 
-    # Build periods table with payment rows - using Paragraphs for monospace font
+    # Build periods table with payment rows
     periodes = v.get("periodes", [])
     if periodes:
-        mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
-        mono_left = ParagraphStyle('MonoLeft', fontName='Courier', fontSize=8, alignment=TA_LEFT)
-
-        # Add icon column for kapitalisatie indicator
         header = ["", "Periode", "Dagen", "Hoofdsom", "Rente %", "Rente"]
         data = [header]
-        row_colors = []  # Track which rows are payment rows
+        row_types = []
 
         for p in periodes:
             periode_str = f"{format_datum(p.get('start', ''))} - {format_datum(p.get('eind', ''))}"
             is_kap = p.get("is_kapitalisatie")
 
-            # Icon cell for kapitalisatie
+            # Icon cell - use Image for kapitalisatie (12x12 for clarity)
             if is_kap and os.path.exists(ICON_KAPITALISATIE):
-                icon_cell = Image(ICON_KAPITALISATIE, width=8, height=8)
+                try:
+                    icon_cell = Image(ICON_KAPITALISATIE, width=12, height=12)
+                except:
+                    icon_cell = "⟳"
             else:
                 icon_cell = ""
 
             data.append([
                 icon_cell,
-                Paragraph(periode_str, mono_left),
-                Paragraph(str(p.get("dagen", 0)), mono_style),
-                Paragraph(format_bedrag(p.get("hoofdsom", 0)), mono_style),
-                Paragraph(format_percentage(p.get("rente_pct", 0)), mono_style),
-                Paragraph(format_bedrag(p.get("rente", 0)), mono_style)
+                periode_str,
+                str(p.get("dagen", 0)),
+                format_bedrag(p.get("hoofdsom", 0)),
+                format_percentage(p.get("rente_pct", 0)),
+                format_bedrag(p.get("rente", 0))
             ])
-            row_colors.append('normal' if not is_kap else 'kapitalisatie')
+            row_types.append('kapitalisatie' if is_kap else 'normal')
 
             # Check for payment on this period's end date
             period_end = p.get("eind", "")
@@ -652,30 +658,29 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
                 if db.get("datum") == period_end:
                     toerekeningen = [t for t in db.get("toerekeningen", []) if t.get("vordering") == kenmerk]
                     if toerekeningen:
-                        # Build payment description with monospace for amounts
                         parts = []
                         for t in toerekeningen:
                             type_label = {"kosten": "Kosten", "rente": "Rente", "hoofdsom": "Hoofdsom"}.get(t.get("type", ""), "")
-                            parts.append(f'{type_label}: <font face="Courier"><b>{format_bedrag(t.get("bedrag", 0))}</b></font>')
+                            parts.append(f'{type_label}: {format_bedrag(t.get("bedrag", 0))}')
 
                         db_kenmerk = db.get('kenmerk', '') or ''
-                        payment_text = f'<b>Betaling</b> {db_kenmerk} op <font face="Courier">{format_datum(period_end)}</font>: {" | ".join(parts)}'
+                        payment_text = f'Betaling {db_kenmerk} op {format_datum(period_end)}: {" | ".join(parts)}'
 
-                        # Payment row with icon in first column
+                        # Icon cell for payment (12x12 for clarity)
                         if os.path.exists(ICON_BETALING):
-                            icon_cell = Image(ICON_BETALING, width=10, height=10)
+                            try:
+                                icon_cell = Image(ICON_BETALING, width=12, height=12)
+                            except:
+                                icon_cell = "€"
                         else:
-                            icon_cell = ""
+                            icon_cell = "€"
 
-                        data.append([
-                            icon_cell,
-                            Paragraph(f'<font color="#16a34a">{payment_text}</font>',
-                                     ParagraphStyle('Payment', fontSize=8)),
-                            "", "", "", ""
-                        ])
-                        row_colors.append('payment')
+                        data.append([icon_cell, payment_text, "", "", "", ""])
+                        row_types.append('payment')
 
-        col_widths = [0.5*cm, 4*cm, 1.3*cm, 2.8*cm, 1.8*cm, 2.8*cm]
+        # Column widths - MUST add up to exactly 18cm
+        # 0.8 + 4.2 + 1.5 + 4.0 + 2.5 + 5.0 = 18.0cm
+        col_widths = [0.8*cm, 4.2*cm, 1.5*cm, 4.0*cm, 2.5*cm, 5.0*cm]
         table = Table(data, colWidths=col_widths)
 
         table_style = TableStyle([
@@ -685,58 +690,64 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
             ('BACKGROUND', (0, 0), (-1, 0), MUTED_BG),
             ('TEXTCOLOR', (0, 0), (-1, 0), MUTED_TEXT),
 
-            # Body - let Paragraph handle fonts
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+            # Body
+            ('FONTNAME', (1, 1), (-1, -1), 'Courier'),
+            ('FONTSIZE', (0, 1), (-1, -1), 7),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),  # Numbers right-aligned
+            ('ALIGN', (0, 0), (0, -1), 'CENTER'),  # Icon centered
 
             # Grid
             ('GRID', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('LEFTPADDING', (0, 0), (-1, -1), 3),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ])
 
-        # Apply row colors
-        for i, row_type in enumerate(row_colors, 1):
+        # Apply row colors and spans
+        for i, row_type in enumerate(row_types, 1):
             if row_type == 'payment':
                 table_style.add('BACKGROUND', (0, i), (-1, i), PAYMENT_BG)
-                table_style.add('SPAN', (1, i), (-1, i))  # Span from col 1 to keep icon in col 0
-                table_style.add('VALIGN', (0, i), (0, i), 'MIDDLE')
+                table_style.add('SPAN', (1, i), (-1, i))
+                table_style.add('FONTNAME', (1, i), (1, i), 'Helvetica-Bold')
+                table_style.add('TEXTCOLOR', (1, i), (1, i), SUCCESS_COLOR)
             elif row_type == 'kapitalisatie':
                 table_style.add('BACKGROUND', (0, i), (-1, i), colors.HexColor("#eff6ff"))
-                table_style.add('VALIGN', (0, i), (0, i), 'MIDDLE')
 
         table.setStyle(table_style)
         elements.append(table)
 
-        # Legend with icons
-        legend_style = ParagraphStyle('Legend', fontSize=7, textColor=MUTED_TEXT)
-        legend_items = []
+        # Legend with actual icons (10x10 for legend)
+        legend_data = []
         if os.path.exists(ICON_KAPITALISATIE):
-            legend_items.append([Image(ICON_KAPITALISATIE, width=10, height=10),
-                                Paragraph("= kapitalisatie", legend_style)])
+            try:
+                legend_data.append([Image(ICON_KAPITALISATIE, width=10, height=10), " = kapitalisatie"])
+            except:
+                legend_data.append(["⟳", " = kapitalisatie"])
         if os.path.exists(ICON_BETALING):
-            legend_items.append([Image(ICON_BETALING, width=10, height=10),
-                                Paragraph("= betaling", legend_style)])
+            try:
+                legend_data.append([Image(ICON_BETALING, width=10, height=10), " = betaling"])
+            except:
+                legend_data.append(["€", " = betaling"])
 
-        if legend_items:
-            legend_table = Table([sum(legend_items, [])], colWidths=[12, 60, 12, 50])
+        if legend_data:
+            flat_legend = []
+            for item in legend_data:
+                flat_legend.extend(item)
+            legend_table = Table([flat_legend], colWidths=[0.6*cm, 3*cm] * len(legend_data))
             legend_table.setStyle(TableStyle([
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('TEXTCOLOR', (0, 0), (-1, -1), MUTED_TEXT),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 2),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-                ('TOPPADDING', (0, 0), (-1, -1), 2),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ]))
             elements.append(legend_table)
-        else:
-            elements.append(Paragraph(
-                f'<font size="7" color="#64748b">Blauwe rij = kapitalisatie  |  Groene rij = betaling</font>',
-                styles['Normal']
-            ))
 
-    elements.append(Spacer(1, 0.4*cm))
+    elements.append(Spacer(1, 0.3*cm))
     return elements
 
 
@@ -745,23 +756,23 @@ def _get_input_table_style(num_rows: int) -> TableStyle:
     return TableStyle([
         # Header
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('FONTSIZE', (0, 0), (-1, 0), 7),
         ('BACKGROUND', (0, 0), (-1, 0), MUTED_BG),
         ('TEXTCOLOR', (0, 0), (-1, 0), MUTED_TEXT),
 
         # Body
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
         ('ALIGN', (3, 0), (3, -1), 'LEFT'),  # Type/Aangewezen left aligned
 
         # Grid
         ('GRID', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
 
         # Alternating rows
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, LIGHT_BG]),

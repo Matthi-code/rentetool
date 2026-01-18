@@ -28,3 +28,10 @@
 - **Wat wordt gelogd:** `calculation` en `pdf_view` events per gebruiker
 - **Data:** user_id, action_type, case_id, case_name, timestamp
 - **Reden:** Inzicht in gebruik van de tool per gebruiker
+
+### Case Sharing Architectuur
+- **Tabellen:** `user_profiles` (email/domein), `case_shares` (case-user koppeling)
+- **Permissies:** 'view' (alleen lezen) of 'edit' (bewerken)
+- **Collega-detectie:** Zelfde email domein (bijv. @gcon.nl)
+- **Graceful degradation:** Backend werkt ook zonder sharing tabellen
+- **Reden:** Samenwerking binnen organisaties mogelijk maken
