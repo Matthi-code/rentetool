@@ -255,6 +255,7 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     story.append(Spacer(1, 0.5*cm))
 
     # ===== SECTIE 3: SPECIFICATIE PER VORDERING =====
+    story.append(PageBreak())  # Start on new page
     story.append(Paragraph("SPECIFICATIE PER VORDERING", styles['SectionTitle']))
     story.append(Spacer(1, 0.3*cm))
 
