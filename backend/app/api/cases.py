@@ -29,18 +29,25 @@ def can_edit_case(db, case_id: str, user_id: str) -> bool:
     if case.data and case.data[0]['user_id'] == user_id:
         return True
 
-    # Check edit permission
-    share = db.table('case_shares').select('permission').eq(
-        'case_id', case_id
-    ).eq('shared_with_user_id', user_id).eq('permission', 'edit').execute()
+    # Check edit permission (only if sharing tables exist)
+    if _sharing_tables_exist(db):
+        try:
+            share = db.table('case_shares').select('permission').eq(
+                'case_id', case_id
+            ).eq('shared_with_user_id', user_id).eq('permission', 'edit').execute()
+            return bool(share.data)
+        except:
+            pass
 
-    return bool(share.data)
+    return False
 
 
 def _sharing_tables_exist(db) -> bool:
-    """Check if sharing feature tables exist."""
+    """Check if sharing feature tables exist and are accessible."""
     try:
+        # Check both required tables
         db.table('case_shares').select('id').limit(1).execute()
+        db.table('user_profiles').select('id').limit(1).execute()
         return True
     except:
         return False
@@ -203,50 +210,57 @@ async def get_case(case_id: str, user_id: str = Depends(get_current_user)):
 
     if is_owner:
         # Owner always has access
+        sharing_info = CaseShareInfo(
+            is_shared=False,
+            is_owner=True,
+            shared_with=[]
+        )
         if sharing_tables_exist:
-            # Get sharing info for owner
-            shares = db.table('case_shares').select('*').eq('case_id', case_id).execute()
-            shared_with = []
-            if shares.data:
-                shared_user_ids = [s['shared_with_user_id'] for s in shares.data]
-                users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_user_ids).execute()
-                users_map = {u['id']: u for u in users.data}
-                for s in shares.data:
-                    user_data = users_map.get(s['shared_with_user_id'])
-                    if user_data:
-                        shared_with.append(ColleagueWithPermission(
-                            **user_data,
-                            permission=s['permission']
-                        ))
-            sharing_info = CaseShareInfo(
-                is_shared=len(shared_with) > 0,
-                is_owner=True,
-                shared_with=shared_with
-            )
-        else:
-            # No sharing tables - provide default sharing info
-            sharing_info = CaseShareInfo(
-                is_shared=False,
-                is_owner=True,
-                shared_with=[]
-            )
+            try:
+                # Get sharing info for owner
+                shares = db.table('case_shares').select('*').eq('case_id', case_id).execute()
+                shared_with = []
+                if shares.data:
+                    shared_user_ids = [s['shared_with_user_id'] for s in shares.data]
+                    users = db.table('user_profiles').select('id, email, display_name').in_('id', shared_user_ids).execute()
+                    users_map = {u['id']: u for u in users.data}
+                    for s in shares.data:
+                        user_data = users_map.get(s['shared_with_user_id'])
+                        if user_data:
+                            shared_with.append(ColleagueWithPermission(
+                                **user_data,
+                                permission=s['permission']
+                            ))
+                sharing_info = CaseShareInfo(
+                    is_shared=len(shared_with) > 0,
+                    is_owner=True,
+                    shared_with=shared_with
+                )
+            except:
+                pass  # Use default sharing_info
     else:
         # Not owner - check if shared (only if sharing tables exist)
         if sharing_tables_exist:
-            share = db.table('case_shares').select('*, user_profiles!shared_by_user_id(id, email, display_name)').eq(
-                'case_id', case_id
-            ).eq('shared_with_user_id', user_id).execute()
+            try:
+                share = db.table('case_shares').select('*, user_profiles!shared_by_user_id(id, email, display_name)').eq(
+                    'case_id', case_id
+                ).eq('shared_with_user_id', user_id).execute()
 
-            if not share.data:
+                if not share.data:
+                    raise HTTPException(status_code=404, detail="Case not found")
+
+                shared_by_user = share.data[0].get('user_profiles')
+                sharing_info = CaseShareInfo(
+                    is_shared=True,
+                    is_owner=False,
+                    shared_by=ColleagueResponse(**shared_by_user) if shared_by_user else None,
+                    my_permission=share.data[0]['permission']
+                )
+            except HTTPException:
+                raise  # Re-raise HTTP exceptions
+            except:
+                # Sharing tables query failed - user can't access others' cases
                 raise HTTPException(status_code=404, detail="Case not found")
-
-            shared_by_user = share.data[0].get('user_profiles')
-            sharing_info = CaseShareInfo(
-                is_shared=True,
-                is_owner=False,
-                shared_by=ColleagueResponse(**shared_by_user) if shared_by_user else None,
-                my_permission=share.data[0]['permission']
-            )
         else:
             # No sharing tables - user can't access others' cases
             raise HTTPException(status_code=404, detail="Case not found")
