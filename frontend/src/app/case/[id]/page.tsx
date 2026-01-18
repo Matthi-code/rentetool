@@ -88,6 +88,9 @@ export default function CaseDetailPage() {
   const [editingVordering, setEditingVordering] = useState<Vordering | null>(null);
   const [editingDeelbetaling, setEditingDeelbetaling] = useState<Deelbetaling | null>(null);
 
+  // Local reference state for controlled input
+  const [localReference, setLocalReference] = useState<string>('');
+
   // Vordering form
   const [vorderingForm, setVorderingForm] = useState({
     kenmerk: '',
@@ -159,6 +162,13 @@ export default function CaseDetailPage() {
       loadCase();
     }
   }, [user, authLoading, router, loadCase]);
+
+  // Sync local reference with caseData
+  useEffect(() => {
+    if (caseData) {
+      setLocalReference(caseData.klant_referentie || '');
+    }
+  }, [caseData]);
 
   async function handleCalculate() {
     if (!caseData || caseData.vorderingen.length === 0) return;
@@ -254,6 +264,21 @@ export default function CaseDetailPage() {
       });
       setCaseData({ ...caseData, einddatum });
       setResult(null);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleUpdateReference(klant_referentie: string) {
+    if (!caseData) return;
+    try {
+      await updateCase(caseId, {
+        naam: caseData.naam,
+        klant_referentie: klant_referentie || undefined,
+        einddatum: caseData.einddatum,
+        strategie: caseData.strategie,
+      });
+      setCaseData({ ...caseData, klant_referentie: klant_referentie || undefined });
     } catch (err) {
       console.error(err);
     }
@@ -556,7 +581,22 @@ export default function CaseDetailPage() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Referentie</label>
+              <Input
+                value={localReference}
+                onChange={(e) => setLocalReference(e.target.value)}
+                onBlur={() => {
+                  if (localReference !== (caseData.klant_referentie || '')) {
+                    handleUpdateReference(localReference);
+                  }
+                }}
+                placeholder="Uw dossiernummer"
+                className="w-full"
+                disabled={!canEdit}
+              />
+            </div>
             <div>
               <label className="text-sm font-medium mb-2 block">Einddatum berekening</label>
               <Input

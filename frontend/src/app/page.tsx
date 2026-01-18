@@ -40,6 +40,7 @@ type ViewMode = 'cards' | 'table';
 type SortField = 'naam' | 'einddatum' | 'created_at' | 'vorderingen_count' | 'deelbetalingen_count';
 type SortDirection = 'asc' | 'desc';
 type OwnershipFilter = 'all' | 'own' | 'shared';
+type FontSize = 'small' | 'medium' | 'large';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -55,6 +56,10 @@ export default function Dashboard() {
   // View mode (persisted in localStorage)
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
   const [viewModeLoaded, setViewModeLoaded] = useState(false);
+
+  // Font size (persisted in localStorage)
+  const [fontSize, setFontSize] = useState<FontSize>('medium');
+  const [fontSizeLoaded, setFontSizeLoaded] = useState(false);
 
   // Search & filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,6 +92,22 @@ export default function Dashboard() {
       localStorage.setItem('casesViewMode', viewMode);
     }
   }, [viewMode, viewModeLoaded]);
+
+  // Load font size from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('casesFontSize') as FontSize | null;
+    if (saved === 'small' || saved === 'medium' || saved === 'large') {
+      setFontSize(saved);
+    }
+    setFontSizeLoaded(true);
+  }, []);
+
+  // Persist font size to localStorage
+  useEffect(() => {
+    if (fontSizeLoaded) {
+      localStorage.setItem('casesFontSize', fontSize);
+    }
+  }, [fontSize, fontSizeLoaded]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -214,6 +235,16 @@ export default function Dashboard() {
     return cases.filter(c => c.sharing?.is_owner === false).length;
   }, [cases]);
 
+  // Font size class mappings
+  const fontClasses = {
+    cardTitle: { small: 'text-sm', medium: 'text-base', large: 'text-lg' },
+    cardDescription: { small: 'text-[10px]', medium: 'text-xs', large: 'text-sm' },
+    cardBody: { small: 'text-[10px]', medium: 'text-xs', large: 'text-sm' },
+    badge: { small: 'text-[8px] px-1 py-0', medium: 'text-[10px] px-1.5 py-0', large: 'text-xs px-2 py-0.5' },
+    tableCell: { small: 'text-xs', medium: 'text-sm', large: 'text-base' },
+    tableHeader: { small: 'text-[10px]', medium: 'text-xs', large: 'text-sm' },
+  };
+
   if (authLoading || loading) {
     return (
       <div className="container py-8 max-w-6xl mx-auto px-4">
@@ -319,6 +350,37 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
 
+          {/* Font size toggle */}
+          <div className="flex border rounded-md">
+            <Button
+              variant={fontSize === 'small' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-r-none px-2 text-xs"
+              onClick={() => setFontSize('small')}
+              title="Klein lettertype"
+            >
+              A
+            </Button>
+            <Button
+              variant={fontSize === 'medium' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-none px-2 text-sm border-x"
+              onClick={() => setFontSize('medium')}
+              title="Normaal lettertype"
+            >
+              A
+            </Button>
+            <Button
+              variant={fontSize === 'large' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="rounded-l-none px-2 text-base"
+              onClick={() => setFontSize('large')}
+              title="Groot lettertype"
+            >
+              A
+            </Button>
+          </div>
+
           {/* View toggle */}
           <div className="flex border rounded-md">
             <Button
@@ -396,32 +458,32 @@ export default function Dashboard() {
               onClick={() => router.push(`/case/${c.id}`)}
             >
               <CardHeader className="p-3 pb-2 flex-1">
-                <CardTitle className="font-serif text-base leading-snug group-hover:text-primary transition-colors">
+                <CardTitle className={`font-serif leading-snug group-hover:text-primary transition-colors ${fontClasses.cardTitle[fontSize]}`}>
                   {c.naam}
                 </CardTitle>
                 {c.klant_referentie && (
-                  <CardDescription className="text-xs mt-0.5">
+                  <CardDescription className={`mt-0.5 ${fontClasses.cardDescription[fontSize]}`}>
                     Ref: {c.klant_referentie}
                   </CardDescription>
                 )}
                 <div className="flex gap-1 flex-wrap mt-1.5">
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0" title="Vorderingen">
+                  <Badge variant="outline" className={fontClasses.badge[fontSize]} title="Vorderingen">
                     {c.vorderingen_count ?? 0} V
                   </Badge>
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0" title="Betalingen">
+                  <Badge variant="outline" className={fontClasses.badge[fontSize]} title="Betalingen">
                     {c.deelbetalingen_count ?? 0} B
                   </Badge>
-                  <SharedBadge sharing={c.sharing} />
+                  <SharedBadge sharing={c.sharing} fontSize={fontSize} />
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0 mt-auto">
-                <div className="grid grid-cols-2 gap-2 text-xs border-t pt-2">
+                <div className={`grid grid-cols-2 gap-2 border-t pt-2 ${fontClasses.cardBody[fontSize]}`}>
                   <div>
-                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Einddatum</span>
+                    <span className={`block uppercase tracking-wider text-muted-foreground ${fontClasses.cardDescription[fontSize]}`}>Einddatum</span>
                     <span className="font-medium">{formatDatum(c.einddatum)}</span>
                   </div>
                   <div className="text-right">
-                    <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Aangemaakt</span>
+                    <span className={`block uppercase tracking-wider text-muted-foreground ${fontClasses.cardDescription[fontSize]}`}>Aangemaakt</span>
                     <span className="font-medium">{formatDatum(c.created_at)}</span>
                   </div>
                 </div>
@@ -433,42 +495,42 @@ export default function Dashboard() {
         /* Table View */
         <Card>
           <div className="overflow-x-auto">
-            <Table className="text-sm">
+            <Table className={fontClasses.tableCell[fontSize]}>
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-xs"
+                    className={`cursor-pointer hover:bg-muted/80 select-none ${fontClasses.tableHeader[fontSize]}`}
                     onClick={() => handleSort('naam')}
                   >
                     Naam <SortIndicator field="naam" />
                   </TableHead>
-                  <TableHead className="text-xs">Referentie</TableHead>
+                  <TableHead className={fontClasses.tableHeader[fontSize]}>Referentie</TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-center text-xs"
+                    className={`cursor-pointer hover:bg-muted/80 select-none text-center ${fontClasses.tableHeader[fontSize]}`}
                     onClick={() => handleSort('vorderingen_count')}
                   >
                     Vord. <SortIndicator field="vorderingen_count" />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-center text-xs"
+                    className={`cursor-pointer hover:bg-muted/80 select-none text-center ${fontClasses.tableHeader[fontSize]}`}
                     onClick={() => handleSort('deelbetalingen_count')}
                   >
                     Bet. <SortIndicator field="deelbetalingen_count" />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-xs"
+                    className={`cursor-pointer hover:bg-muted/80 select-none ${fontClasses.tableHeader[fontSize]}`}
                     onClick={() => handleSort('einddatum')}
                   >
                     Einddatum <SortIndicator field="einddatum" />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-xs"
+                    className={`cursor-pointer hover:bg-muted/80 select-none ${fontClasses.tableHeader[fontSize]}`}
                     onClick={() => handleSort('created_at')}
                   >
                     Aangemaakt <SortIndicator field="created_at" />
                   </TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="w-[60px] text-center text-xs">Acties</TableHead>
+                  <TableHead className={fontClasses.tableHeader[fontSize]}>Status</TableHead>
+                  <TableHead className={`w-[60px] text-center ${fontClasses.tableHeader[fontSize]}`}>Acties</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -487,7 +549,7 @@ export default function Dashboard() {
                     <TableCell className="py-2">{formatDatum(c.einddatum)}</TableCell>
                     <TableCell className="py-2">{formatDatum(c.created_at)}</TableCell>
                     <TableCell className="py-2">
-                      <SharedBadge sharing={c.sharing} />
+                      <SharedBadge sharing={c.sharing} fontSize={fontSize} />
                     </TableCell>
                     <TableCell className="text-center">
                       {c.sharing?.is_owner === false ? (

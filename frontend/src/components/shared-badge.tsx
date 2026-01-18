@@ -3,12 +3,23 @@
 import { Badge } from '@/components/ui/badge';
 import type { CaseShareInfo } from '@/lib/types';
 
+type FontSize = 'small' | 'medium' | 'large';
+
 interface SharedBadgeProps {
   sharing?: CaseShareInfo;
+  fontSize?: FontSize;
 }
 
-export function SharedBadge({ sharing }: SharedBadgeProps) {
+const badgeSizeClasses: Record<FontSize, string> = {
+  small: 'text-[8px] px-1 py-0',
+  medium: 'text-[10px] px-1.5 py-0',
+  large: 'text-xs px-2 py-0.5',
+};
+
+export function SharedBadge({ sharing, fontSize = 'medium' }: SharedBadgeProps) {
   if (!sharing?.is_shared) return null;
+
+  const sizeClass = badgeSizeClasses[fontSize];
 
   if (sharing.is_owner) {
     // Owner - show how many people it's shared with
@@ -16,7 +27,7 @@ export function SharedBadge({ sharing }: SharedBadgeProps) {
     return (
       <Badge
         variant="secondary"
-        className="text-[10px] px-1.5 py-0"
+        className={sizeClass}
         title={`Gedeeld met ${count} ${count === 1 ? 'persoon' : 'personen'}`}
       >
         Gedeeld ({count})
@@ -32,7 +43,7 @@ export function SharedBadge({ sharing }: SharedBadgeProps) {
     return (
       <Badge
         variant="outline"
-        className={`text-[10px] px-1.5 py-0 ${isReadOnly ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}
+        className={`${sizeClass} ${isReadOnly ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}
         title={`Gedeeld door ${sharing.shared_by?.email || 'onbekend'} - ${permissionTitle}`}
       >
         Van {sharedByName} {permissionLabel}
