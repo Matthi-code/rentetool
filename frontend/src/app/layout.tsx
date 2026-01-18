@@ -30,13 +30,23 @@ export default function RootLayout({
       <body className={`${inter.variable} ${merriweather.variable} font-sans antialiased min-h-screen bg-background`}>
         <AuthProvider>
           <div className="flex min-h-screen flex-col">
+            {/* Demo banner */}
+            <div className="bg-amber-500 text-amber-950 text-center py-2 px-4 text-sm font-medium">
+              Demo-versie - Alleen voor illustratieve doeleinden
+            </div>
             <Header />
             <main className="flex-1">
               {children}
             </main>
-            <footer className="border-t py-4 text-center text-sm text-muted-foreground">
-              <div className="container">
-                Rentetool - Wettelijke rente conform art. 6:119/119a BW
+            <footer className="border-t py-6 text-center text-sm text-muted-foreground">
+              <div className="container space-y-3">
+                <p className="text-xs max-w-2xl mx-auto">
+                  <strong>Disclaimer:</strong> Deze tool is uitsluitend bedoeld als hulpmiddel.
+                  De berekeningen zijn indicatief en kunnen afwijken van de werkelijke verschuldigde rente.
+                  De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten.
+                  Raadpleeg bij twijfel een juridisch adviseur.
+                </p>
+                <p>Rentetool - Wettelijke rente conform art. 6:119/119a BW</p>
               </div>
             </footer>
           </div>

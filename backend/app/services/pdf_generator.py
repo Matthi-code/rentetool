@@ -229,11 +229,41 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     for v in vorderingen_result:
         story.extend(_build_vordering_specification(v, deelbetalingen_result, styles))
 
-    # ===== FOOTER =====
+    # ===== DISCLAIMER =====
     story.append(Spacer(1, 0.5*cm))
     story.append(HRFlowable(width="100%", thickness=0.5, color=BORDER_COLOR))
-    story.append(Spacer(1, 0.2*cm))
+    story.append(Spacer(1, 0.3*cm))
 
+    disclaimer_text = """<b>DEMO-VERSIE - DISCLAIMER</b><br/><br/>
+Dit document is gegenereerd met de Rentetool demo-versie en is uitsluitend bedoeld als hulpmiddel
+voor illustratieve doeleinden. De berekeningen zijn indicatief en kunnen afwijken van de werkelijke
+verschuldigde rente. De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten
+en de juistheid van de ingevoerde gegevens. Aan dit document kunnen geen rechten worden ontleend.
+Raadpleeg bij twijfel een juridisch of financieel adviseur."""
+
+    disclaimer_style = ParagraphStyle(
+        'Disclaimer',
+        fontName='Helvetica',
+        fontSize=8,
+        textColor=MUTED_TEXT,
+        alignment=TA_LEFT,
+        leading=11,
+    )
+
+    disclaimer_data = [[Paragraph(disclaimer_text, disclaimer_style)]]
+    disclaimer_table = Table(disclaimer_data, colWidths=[17*cm])
+    disclaimer_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fef3c7")),  # Amber light
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#f59e0b")),  # Amber border
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(disclaimer_table)
+    story.append(Spacer(1, 0.3*cm))
+
+    # ===== FOOTER =====
     footer_text = (
         f"Wettelijke rente conform art. 6:119/6:119a BW | "
         f"Toerekening conform art. 6:43/6:44 BW | "
