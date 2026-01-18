@@ -37,7 +37,7 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col">
             {/* Demo banner */}
             <div className="bg-amber-500 text-amber-950 text-center py-2 px-4 text-sm font-medium">
-              TEST-versie - Alleen te gebruiken voor testen
+              TEST-versie - Alleen voor test doeleinden
             </div>
             <Header />
             <main className="flex-1">

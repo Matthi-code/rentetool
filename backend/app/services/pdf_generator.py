@@ -269,7 +269,7 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     story.append(Spacer(1, 0.3*cm))
 
     disclaimer_text = """<b>TEST-VERSIE - DISCLAIMER</b><br/><br/>
-Dit document is gegenereerd met de Rentetool test-versie en is alleen te gebruiken voor testen.
+Dit document is gegenereerd met de Rentetool test-versie en is alleen voor test doeleinden.
 De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten."""
 
     disclaimer_style = ParagraphStyle(
