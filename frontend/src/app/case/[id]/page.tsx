@@ -457,7 +457,7 @@ export default function CaseDetailPage() {
               )}
             </Button>
             <div className="h-5 w-px bg-border hidden sm:block" />
-            <Image src="/logo.png" alt="Rentetool" width={32} height={32} className="shrink-0" />
+            <Image src="/gans.png" alt="Rentetool" width={32} height={32} className="shrink-0" />
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-primary truncate">{caseData.naam}</h1>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
