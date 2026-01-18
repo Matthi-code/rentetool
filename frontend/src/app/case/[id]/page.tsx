@@ -170,9 +170,14 @@ export default function CaseDetailPage() {
       setResult(res);
       // Log usage
       logUsage({ action_type: 'calculation', case_id: caseId, case_name: caseData.naam });
-      // Scroll to results after a short delay
+      // Scroll to results after a short delay, accounting for sticky header
       setTimeout(() => {
-        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (resultRef.current) {
+          const headerOffset = 140; // Account for main header + sticky case header
+          const elementPosition = resultRef.current.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+        }
       }, 100);
     } catch (err) {
       setError('Berekening mislukt');
