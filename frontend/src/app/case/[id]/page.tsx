@@ -71,6 +71,8 @@ export default function CaseDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [result, setResult] = useState<BerekeningResponse | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -166,7 +168,7 @@ export default function CaseDetailPage() {
     }
   }
 
-  async function handleDownloadPdf() {
+  async function handleShowPdfPreview() {
     if (!caseData || caseData.vorderingen.length === 0) return;
 
     setGeneratingPdf(true);
@@ -175,24 +177,48 @@ export default function CaseDetailPage() {
       // First create a snapshot (this generates the PDF)
       const snapshot = await createSnapshot(caseId);
 
-      // Then download the PDF
+      // Then get the PDF blob
       const blob = await getSnapshotPdf(snapshot.id);
 
-      // Create download link
+      // Create URL for preview
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `renteberekening-${caseData.naam.replace(/[^a-zA-Z0-9]/g, '-')}-${caseData.einddatum}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+
+      // Clean up old URL if exists
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+      }
+
+      setPdfPreviewUrl(url);
+      setPdfPreviewOpen(true);
     } catch (err) {
       setError('PDF genereren mislukt');
       console.error(err);
     } finally {
       setGeneratingPdf(false);
     }
+  }
+
+  async function handleDownloadPdf() {
+    if (!pdfPreviewUrl || !caseData) return;
+
+    // Download the currently previewed PDF
+    const a = document.createElement('a');
+    a.href = pdfPreviewUrl;
+    a.download = `renteberekening-${caseData.naam.replace(/[^a-zA-Z0-9]/g, '-')}-${caseData.einddatum}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  function closePdfPreview() {
+    setPdfPreviewOpen(false);
+    // Clean up URL after a delay to allow animation
+    setTimeout(() => {
+      if (pdfPreviewUrl) {
+        window.URL.revokeObjectURL(pdfPreviewUrl);
+        setPdfPreviewUrl(null);
+      }
+    }, 300);
   }
 
   async function handleUpdateEinddatum(einddatum: string) {
@@ -415,6 +441,20 @@ export default function CaseDetailPage() {
             <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="text-muted-foreground hover:text-foreground shrink-0">
               ← Terug
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShowPdfPreview}
+              disabled={generatingPdf || caseData.vorderingen.length === 0}
+              className="shadow-sm shrink-0"
+              title="PDF bekijken"
+            >
+              {generatingPdf ? (
+                <span className="animate-spin">⟳</span>
+              ) : (
+                <>PDF</>
+              )}
+            </Button>
             <div className="h-5 w-px bg-border hidden sm:block" />
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-primary truncate">{caseData.naam}</h1>
           </div>
@@ -432,20 +472,6 @@ export default function CaseDetailPage() {
                 </>
               ) : (
                 <>Bereken Rente</>
-              )}
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={handleDownloadPdf}
-              disabled={generatingPdf || caseData.vorderingen.length === 0}
-              className="shadow-sm"
-              title="PDF downloaden"
-            >
-              {generatingPdf ? (
-                <span className="animate-spin">⟳</span>
-              ) : (
-                <>PDF</>
               )}
             </Button>
           </div>
@@ -1126,6 +1152,37 @@ export default function CaseDetailPage() {
               {editingDeelbetaling ? 'Opslaan' : 'Toevoegen'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Preview Dialog */}
+      <Dialog open={pdfPreviewOpen} onOpenChange={(open) => {
+        if (!open) closePdfPreview();
+        else setPdfPreviewOpen(open);
+      }}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b">
+            <div className="flex items-center justify-between">
+              <DialogTitle>PDF Preview</DialogTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+                  Download
+                </Button>
+                <Button variant="ghost" size="sm" onClick={closePdfPreview}>
+                  Sluiten
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {pdfPreviewUrl && (
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-full border-0"
+                title="PDF Preview"
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

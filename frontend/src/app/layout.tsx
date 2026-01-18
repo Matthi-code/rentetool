@@ -41,10 +41,7 @@ export default function RootLayout({
             <footer className="border-t py-6 text-center text-sm text-muted-foreground">
               <div className="container space-y-3">
                 <p className="text-xs max-w-2xl mx-auto">
-                  <strong>Disclaimer:</strong> Deze tool is uitsluitend bedoeld als hulpmiddel.
-                  De berekeningen zijn indicatief en kunnen afwijken van de werkelijke verschuldigde rente.
-                  De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten.
-                  Raadpleeg bij twijfel een juridisch adviseur.
+                  <strong>Disclaimer:</strong> De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten.
                 </p>
                 <p>Rentetool - Wettelijke rente conform art. 6:119/119a BW</p>
               </div>

@@ -334,38 +334,19 @@ def _get_styles():
 
 
 def _build_header(case_info: Dict, snapshot_created: datetime, styles) -> Table:
-    """Build compact header with logo and serif fonts."""
+    """Build compact header with case info (logo is in page header)."""
     case_name = case_info.get("naam", "Onbekend")
     strategie = case_info.get("strategie", "A")
 
-    # Logo
-    logo = None
-    if os.path.exists(LOGO_PATH):
-        try:
-            logo = Image(LOGO_PATH, width=1.2*cm, height=1.2*cm)
-        except:
-            pass
+    # Left: subtitle (logo + Rentetool text is already in page header)
+    left_content = f"""<font size="9" color="#64748b">Specificatie Renteberekening</font>"""
 
-    # Text content - colors need # prefix for Paragraph
-    brand_text = f"""<font face="Times-Bold" size="16" color="#1e3a5f">Rentetool</font>
-<font size="8" color="#64748b">Specificatie Renteberekening</font>"""
-
+    # Right: case info
     right_content = f"""<font face="Times-Bold" size="13" color="#1e3a5f">{case_name}</font>
 <font size="8" color="#64748b">Strategie {strategie}</font>"""
 
-    # Build table with logo + text on left, case info on right
-    if logo:
-        left_cell = Table([[logo, Paragraph(brand_text, styles['Normal'])]], colWidths=[1.5*cm, 6*cm])
-        left_cell.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ]))
-    else:
-        left_cell = Paragraph(brand_text, styles['Normal'])
-
     data = [[
-        left_cell,
+        Paragraph(left_content, styles['Normal']),
         Paragraph(right_content, ParagraphStyle('Right', alignment=TA_RIGHT))
     ]]
 
