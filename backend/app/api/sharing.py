@@ -123,7 +123,7 @@ async def unshare_case(
     shared_with_user_id: str,
     user_id: str = Depends(get_current_user)
 ):
-    """Remove sharing for a specific user."""
+    """Remove sharing for a specific user (owner only)."""
     db = get_db()
 
     # Verify case ownership
@@ -137,6 +137,30 @@ async def unshare_case(
     ).execute()
 
     return {"status": "unshared"}
+
+
+@router.delete("/cases/{case_id}/leave")
+async def leave_shared_case(
+    case_id: str,
+    user_id: str = Depends(get_current_user)
+):
+    """Leave a shared case (recipient removes themselves from share)."""
+    db = get_db()
+
+    # Verify user is a recipient of this share (not the owner)
+    share = db.table('case_shares').select('id').eq('case_id', case_id).eq(
+        'shared_with_user_id', user_id
+    ).execute()
+
+    if not share.data:
+        raise HTTPException(status_code=404, detail="Share not found")
+
+    # Delete the share
+    db.table('case_shares').delete().eq('case_id', case_id).eq(
+        'shared_with_user_id', user_id
+    ).execute()
+
+    return {"status": "left"}
 
 
 @router.get("/cases/{case_id}/shares", response_model=List[CaseShareResponse])

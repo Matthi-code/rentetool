@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getCases, createCase, deleteCase } from '@/lib/api';
+import { getCases, createCase, deleteCase, leaveSharedCase } from '@/lib/api';
 import { formatDatum, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { SharedBadge } from '@/components/shared-badge';
@@ -66,6 +66,10 @@ export default function Dashboard() {
   // Delete state
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Leave shared case state
+  const [leaveConfirmId, setLeaveConfirmId] = useState<string | null>(null);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -138,6 +142,20 @@ export default function Dashboard() {
       console.error(err);
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  async function handleLeaveCase(id: string) {
+    setIsLeaving(true);
+    try {
+      await leaveSharedCase(id);
+      setCases(cases.filter(c => c.id !== id));
+      setLeaveConfirmId(null);
+    } catch (err) {
+      setError('Kon deling niet beëindigen');
+      console.error(err);
+    } finally {
+      setIsLeaving(false);
     }
   }
 
@@ -461,7 +479,20 @@ export default function Dashboard() {
                       <SharedBadge sharing={c.sharing} />
                     </TableCell>
                     <TableCell className="text-center">
-                      {c.sharing?.is_owner !== false && (
+                      {c.sharing?.is_owner === false ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 hover:bg-orange-100 hover:text-orange-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setLeaveConfirmId(c.id);
+                          }}
+                          title="Niet meer volgen"
+                        >
+                          ✕
+                        </Button>
+                      ) : (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -503,6 +534,31 @@ export default function Dashboard() {
               disabled={isDeleting}
             >
               {isDeleting ? 'Verwijderen...' : 'Verwijderen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Shared Case Confirmation Dialog */}
+      <Dialog open={leaveConfirmId !== null} onOpenChange={(open) => !open && setLeaveConfirmId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Niet Meer Volgen</DialogTitle>
+            <DialogDescription>
+              Weet u zeker dat u deze gedeelde zaak niet meer wilt volgen?
+              De eigenaar behoudt toegang en kan de zaak opnieuw met u delen.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setLeaveConfirmId(null)}>
+              Annuleren
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => leaveConfirmId && handleLeaveCase(leaveConfirmId)}
+              disabled={isLeaving}
+            >
+              {isLeaving ? 'Bezig...' : 'Niet meer volgen'}
             </Button>
           </DialogFooter>
         </DialogContent>

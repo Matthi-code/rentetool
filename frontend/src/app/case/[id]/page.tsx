@@ -48,6 +48,7 @@ import {
   createSnapshot,
   getSnapshotPdf,
   logUsage,
+  leaveSharedCase,
 } from '@/lib/api';
 import { formatBedrag, formatDatum, formatPercentage, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
@@ -105,6 +106,10 @@ export default function CaseDetailPage() {
     datum: getToday(),
     aangewezen: [] as string[],
   });
+
+  // Leave shared case state
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   // Computed: Can the user edit this case?
   const isOwner = caseData?.sharing?.is_owner !== false;
@@ -409,6 +414,20 @@ export default function CaseDetailPage() {
     }
   }
 
+  async function handleLeaveCase() {
+    setIsLeaving(true);
+    try {
+      await leaveSharedCase(caseId);
+      router.push('/');
+    } catch (err) {
+      console.error(err);
+      setError('Kon deling niet beëindigen');
+    } finally {
+      setIsLeaving(false);
+      setLeaveDialogOpen(false);
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="container py-8 max-w-5xl mx-auto px-4">
@@ -466,12 +485,21 @@ export default function CaseDetailPage() {
             <SharedBadge sharing={caseData.sharing} showPermission />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            {isOwner && (
+            {isOwner ? (
               <ShareCaseDialog caseId={caseId} caseName={caseData.naam} onShareChange={loadCase}>
                 <Button variant="outline" size="lg" className="shadow-sm">
                   Delen
                 </Button>
               </ShareCaseDialog>
+            ) : (
+              <Button
+                variant="outline"
+                size="lg"
+                className="shadow-sm"
+                onClick={() => setLeaveDialogOpen(true)}
+              >
+                Niet meer volgen
+              </Button>
             )}
             <Button
               size="lg"
@@ -1234,6 +1262,31 @@ export default function CaseDetailPage() {
               />
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Shared Case Confirmation Dialog */}
+      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Niet Meer Volgen</DialogTitle>
+            <DialogDescription>
+              Weet u zeker dat u deze gedeelde zaak niet meer wilt volgen?
+              De eigenaar behoudt toegang en kan de zaak opnieuw met u delen.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>
+              Annuleren
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleLeaveCase}
+              disabled={isLeaving}
+            >
+              {isLeaving ? 'Bezig...' : 'Niet meer volgen'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

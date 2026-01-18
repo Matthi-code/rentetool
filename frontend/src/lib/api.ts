@@ -303,3 +303,9 @@ export async function updateSharePermission(
     method: 'PATCH',
   });
 }
+
+export async function leaveSharedCase(caseId: string): Promise<void> {
+  await fetchApi(`/api/sharing/cases/${caseId}/leave`, {
+    method: 'DELETE',
+  });
+}
