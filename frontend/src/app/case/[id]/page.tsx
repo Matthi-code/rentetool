@@ -441,20 +441,6 @@ export default function CaseDetailPage() {
             <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="text-muted-foreground hover:text-foreground shrink-0">
               ← Terug
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleShowPdfPreview}
-              disabled={generatingPdf || caseData.vorderingen.length === 0}
-              className="shadow-sm shrink-0"
-              title="PDF bekijken"
-            >
-              {generatingPdf ? (
-                <span className="animate-spin">⟳</span>
-              ) : (
-                <>PDF</>
-              )}
-            </Button>
             <div className="h-5 w-px bg-border hidden sm:block" />
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-primary truncate">{caseData.naam}</h1>
           </div>
@@ -472,6 +458,20 @@ export default function CaseDetailPage() {
                 </>
               ) : (
                 <>Bereken Rente</>
+              )}
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleShowPdfPreview}
+              disabled={generatingPdf || caseData.vorderingen.length === 0}
+              className="shadow-sm"
+              title="PDF bekijken"
+            >
+              {generatingPdf ? (
+                <span className="animate-spin">⟳</span>
+              ) : (
+                <>PDF</>
               )}
             </Button>
           </div>
@@ -828,7 +828,7 @@ export default function CaseDetailPage() {
                           return (
                             <Badge variant="outline" className="text-xs bg-muted/50">
                               {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
-                              {vordInfo.opslag ? ` ${vordInfo.opslag}%` : ''}
+                              {vordInfo.opslag ? ` +${vordInfo.opslag > 1 ? vordInfo.opslag : vordInfo.opslag * 100}%` : ''}
                             </Badge>
                           );
                         }
