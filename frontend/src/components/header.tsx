@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export function Header() {
   const { user, loading, signOut } = useAuth();
@@ -17,8 +18,8 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-primary text-primary-foreground shadow-sm">
       <div className="container flex h-16 items-center px-4 max-w-6xl mx-auto">
         <a href="/" className="flex items-center space-x-3 group">
-          <div className="w-9 h-9 rounded bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
-            <span className="font-serif font-bold text-lg">R</span>
+          <div className="w-9 h-9 rounded bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors overflow-hidden">
+            <Image src="/gans.png" alt="Rentetool" width={32} height={32} />
           </div>
           <div className="flex flex-col">
             <span className="font-serif font-bold text-lg leading-tight">Rentetool</span>
