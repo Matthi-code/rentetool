@@ -11,7 +11,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -39,8 +38,24 @@ export function ShareCaseDialog({ caseId, caseName, onShareChange, children }: S
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    async function loadDataOnOpen() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [colleaguesData, sharesData] = await Promise.all([
+          getColleagues(),
+          getCaseShares(caseId),
+        ]);
+        setColleagues(colleaguesData);
+        setShares(sharesData);
+      } catch {
+        setError('Kon gegevens niet laden');
+      } finally {
+        setLoading(false);
+      }
+    }
     if (open) {
-      loadData();
+      loadDataOnOpen();
     }
   }, [open, caseId]);
 
@@ -54,7 +69,7 @@ export function ShareCaseDialog({ caseId, caseName, onShareChange, children }: S
       ]);
       setColleagues(colleaguesData);
       setShares(sharesData);
-    } catch (err) {
+    } catch {
       setError('Kon gegevens niet laden');
     } finally {
       setLoading(false);
@@ -88,7 +103,7 @@ export function ShareCaseDialog({ caseId, caseName, onShareChange, children }: S
       await unshareCase(caseId, userId);
       await loadData();
       onShareChange?.();
-    } catch (err) {
+    } catch {
       setError('Verwijderen mislukt');
     } finally {
       setLoading(false);
@@ -101,7 +116,7 @@ export function ShareCaseDialog({ caseId, caseName, onShareChange, children }: S
       await updateSharePermission(caseId, userId, newPermission);
       await loadData();
       onShareChange?.();
-    } catch (err) {
+    } catch {
       setError('Wijzigen mislukt');
     } finally {
       setLoading(false);
