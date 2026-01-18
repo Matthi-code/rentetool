@@ -395,6 +395,8 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
     if not vorderingen:
         return Paragraph("Geen vorderingen.", styles['Muted'])
 
+    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=9, alignment=TA_RIGHT)
+
     header = ["Kenmerk", "Bedrag", "Datum", "Type", "Kosten"]
     data = [header]
 
@@ -406,10 +408,10 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
 
         data.append([
             v.get("kenmerk", ""),
-            format_bedrag(v.get("bedrag", 0)),
+            Paragraph(format_bedrag(v.get("bedrag", 0)), mono_style),
             format_datum(v.get("datum", "")),
             rentetype,
-            format_bedrag(v.get("kosten", 0))
+            Paragraph(format_bedrag(v.get("kosten", 0)), mono_style)
         ])
 
     col_widths = [3.5*cm, 2.5*cm, 2.5*cm, 4.5*cm, 2.5*cm]
@@ -420,6 +422,8 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
 
 def _build_deelbetalingen_invoer_table(deelbetalingen: List[Dict], styles) -> Table:
     """Build deelbetalingen input table matching webapp."""
+    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=9, alignment=TA_RIGHT)
+
     header = ["Kenmerk", "Bedrag", "Datum", "Aangewezen aan"]
     data = [header]
 
@@ -429,7 +433,7 @@ def _build_deelbetalingen_invoer_table(deelbetalingen: List[Dict], styles) -> Ta
 
         data.append([
             d.get("kenmerk", "-") or "-",
-            format_bedrag(d.get("bedrag", 0)),
+            Paragraph(format_bedrag(d.get("bedrag", 0)), mono_style),
             format_datum(d.get("datum", "")),
             aangewezen_str
         ])
@@ -453,8 +457,9 @@ def _build_summary_blocks(totalen: Dict, styles) -> Table:
             value_color = "#1e293b"
             value_size = 12
 
+        # Use Courier (monospace) for amounts like webapp uses JetBrains Mono
         content = f"""<font size="7" color="{label_color}">{label}</font><br/>
-<font size="{value_size}" color="{value_color}"><b>{value}</b></font>"""
+<font face="Courier" size="{value_size}" color="{value_color}"><b>{value}</b></font>"""
         return Paragraph(content, ParagraphStyle('Cell', leading=14))
 
     data = [[
@@ -486,10 +491,11 @@ def _build_afgelost_block(totalen: Dict, styles) -> Table:
     kst = format_bedrag(totalen.get("afgelost_kosten", 0))
     rnt = format_bedrag(totalen.get("afgelost_rente", 0))
 
+    # Use Courier (monospace) for amounts like webapp
     content = f"""<font size="8" color="#16a34a"><b>TOTAAL AFGELOST</b></font><br/>
-<font size="9" color="#16a34a">Hoofdsom:</font> <b>{hs}</b>
-<font size="9" color="#16a34a">Kosten:</font> <b>{kst}</b>
-<font size="9" color="#16a34a">Rente:</font> <b>{rnt}</b>"""
+<font size="9" color="#16a34a">Hoofdsom:</font> <font face="Courier"><b>{hs}</b></font>
+<font size="9" color="#16a34a">Kosten:</font> <font face="Courier"><b>{kst}</b></font>
+<font size="9" color="#16a34a">Rente:</font> <font face="Courier"><b>{rnt}</b></font>"""
 
     data = [[Paragraph(content, ParagraphStyle('Afgelost', leading=14))]]
     table = Table(data, colWidths=[17*cm])
@@ -685,9 +691,9 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
         table.setStyle(table_style)
         elements.append(table)
 
-        # Legend
+        # Legend - matching webapp exactly
         elements.append(Paragraph(
-            f'<font size="7" color="#64748b">* = kapitalisatie (rente bij hoofdsom)</font>',
+            f'<font size="7" color="#64748b"><font color="#3b82f6">↻</font> = kapitalisatie (rente bij hoofdsom)  |  <font color="#16a34a">💰</font> = betaling ontvangen</font>',
             styles['Normal']
         ))
 
