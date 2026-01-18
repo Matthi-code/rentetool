@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -456,7 +457,7 @@ export default function CaseDetailPage() {
               )}
             </Button>
             <div className="h-5 w-px bg-border hidden sm:block" />
-            <img src="/logo.png" alt="Rentetool" className="h-8 w-8 shrink-0" />
+            <Image src="/logo.png" alt="Rentetool" width={32} height={32} className="shrink-0" />
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-primary truncate">{caseData.naam}</h1>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
