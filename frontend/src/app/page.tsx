@@ -383,25 +383,23 @@ export default function Dashboard() {
               onClick={() => router.push(`/case/${c.id}`)}
             >
               <CardHeader className="pb-3 flex-1">
-                <div className="flex items-start justify-between gap-3">
-                  <CardTitle className="font-serif text-lg leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                    {c.naam}
-                  </CardTitle>
-                  <div className="flex gap-1 shrink-0 flex-wrap justify-end">
-                    <Badge variant="outline" className="text-xs" title="Vorderingen">
-                      {c.vorderingen_count ?? 0} V
-                    </Badge>
-                    <Badge variant="outline" className="text-xs" title="Betalingen">
-                      {c.deelbetalingen_count ?? 0} B
-                    </Badge>
-                    <SharedBadge sharing={c.sharing} />
-                  </div>
-                </div>
+                <CardTitle className="font-serif text-lg leading-snug group-hover:text-primary transition-colors">
+                  {c.naam}
+                </CardTitle>
                 {c.klant_referentie && (
                   <CardDescription className="text-xs mt-1">
                     Ref: {c.klant_referentie}
                   </CardDescription>
                 )}
+                <div className="flex gap-1.5 flex-wrap mt-2">
+                  <Badge variant="outline" className="text-xs" title="Vorderingen">
+                    {c.vorderingen_count ?? 0} V
+                  </Badge>
+                  <Badge variant="outline" className="text-xs" title="Betalingen">
+                    {c.deelbetalingen_count ?? 0} B
+                  </Badge>
+                  <SharedBadge sharing={c.sharing} />
+                </div>
               </CardHeader>
               <CardContent className="pt-0 mt-auto">
                 <div className="grid grid-cols-2 gap-4 text-sm border-t pt-3">
