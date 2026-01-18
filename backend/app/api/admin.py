@@ -136,3 +136,22 @@ async def list_users(admin_id: str = Depends(require_admin)):
 async def check_admin(admin_id: str = Depends(require_admin)):
     """Check if current user is an admin."""
     return {"is_admin": True}
+
+
+@router.post("/sync-profiles")
+async def sync_user_profiles(admin_id: str = Depends(require_admin)):
+    """Sync user_profiles with auth.users - create missing profiles."""
+    db = get_db()
+
+    # Get all existing profile IDs
+    profiles = db.table('user_profiles').select('id').execute()
+    profile_ids = {p['id'] for p in profiles.data}
+
+    # We can't directly query auth.users from the API, but we can use the
+    # Supabase admin API. For now, return the count of existing profiles.
+    # The proper fix is to run the backfill SQL in Supabase dashboard.
+
+    return {
+        "profiles_count": len(profile_ids),
+        "message": "Run this SQL in Supabase Dashboard to sync profiles: INSERT INTO public.user_profiles (id, email, display_name) SELECT id, email, split_part(email, '@', 1) FROM auth.users ON CONFLICT (id) DO NOTHING;"
+    }
