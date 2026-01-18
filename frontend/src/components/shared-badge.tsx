@@ -5,10 +5,9 @@ import type { CaseShareInfo } from '@/lib/types';
 
 interface SharedBadgeProps {
   sharing?: CaseShareInfo;
-  showPermission?: boolean;
 }
 
-export function SharedBadge({ sharing, showPermission = false }: SharedBadgeProps) {
+export function SharedBadge({ sharing }: SharedBadgeProps) {
   if (!sharing?.is_shared) return null;
 
   if (sharing.is_owner) {
@@ -24,18 +23,19 @@ export function SharedBadge({ sharing, showPermission = false }: SharedBadgeProp
       </Badge>
     );
   } else {
-    // Recipient - show who shared it
+    // Recipient - show who shared it and permission
     const sharedByName = sharing.shared_by?.display_name || sharing.shared_by?.email?.split('@')[0] || 'iemand';
-    const permissionText = sharing.my_permission === 'edit' ? '' : ' (alleen lezen)';
+    const isReadOnly = sharing.my_permission !== 'edit';
+    const permissionLabel = isReadOnly ? '👁' : '✏️';
+    const permissionTitle = isReadOnly ? 'Alleen lezen' : 'Kan bewerken';
 
     return (
       <Badge
         variant="outline"
-        className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-        title={`Gedeeld door ${sharing.shared_by?.email || 'onbekend'}${permissionText}`}
+        className={`text-xs ${isReadOnly ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200'}`}
+        title={`Gedeeld door ${sharing.shared_by?.email || 'onbekend'} - ${permissionTitle}`}
       >
-        Van {sharedByName}
-        {showPermission && permissionText}
+        Van {sharedByName} {permissionLabel}
       </Badge>
     );
   }

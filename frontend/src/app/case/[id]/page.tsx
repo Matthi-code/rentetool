@@ -482,7 +482,7 @@ export default function CaseDetailPage() {
             </Button>
             <div className="h-5 w-px bg-border hidden sm:block" />
             <h1 className="font-serif text-xl sm:text-2xl font-bold text-primary truncate">{caseData.naam}</h1>
-            <SharedBadge sharing={caseData.sharing} showPermission />
+            <SharedBadge sharing={caseData.sharing} />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             {isOwner ? (
