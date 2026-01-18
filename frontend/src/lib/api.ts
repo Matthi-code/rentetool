@@ -309,3 +309,40 @@ export async function leaveSharedCase(caseId: string): Promise<void> {
     method: 'DELETE',
   });
 }
+
+// Admin API
+
+export interface AdminStats {
+  total_users: number;
+  total_cases: number;
+  total_calculations: number;
+  total_pdf_views: number;
+}
+
+export interface UserStats {
+  id: string;
+  email: string;
+  display_name: string | null;
+  email_domain: string;
+  created_at: string;
+  cases_count: number;
+  shared_with_count: number;
+  last_activity: string | null;
+}
+
+export async function checkAdmin(): Promise<boolean> {
+  try {
+    await fetchApi('/api/admin/check');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getAdminStats(): Promise<AdminStats> {
+  return fetchApi<AdminStats>('/api/admin/stats');
+}
+
+export async function getAdminUsers(): Promise<UserStats[]> {
+  return fetchApi<UserStats[]>('/api/admin/users');
+}

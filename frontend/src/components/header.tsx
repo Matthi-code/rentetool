@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+// Admin whitelist - must match backend
+const ADMIN_EMAILS = ['matthi+rente@gcon.nl'];
+
 export function Header() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
+
+  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email);
 
   const handleSignOut = async () => {
     await signOut();
@@ -31,6 +36,16 @@ export function Header() {
             <>
               {user ? (
                 <>
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push('/admin')}
+                      className="text-primary-foreground hover:bg-white/10"
+                    >
+                      Beheer
+                    </Button>
+                  )}
                   <span className="text-sm opacity-70 hidden sm:block">
                     {user.email}
                   </span>
