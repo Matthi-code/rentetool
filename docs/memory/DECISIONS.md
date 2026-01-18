@@ -22,3 +22,9 @@
 - **Bestand:** Gans_Trans.png
 - **Locatie:** Header links (vervangt "R" icoon)
 - **Reden:** Gebruiker branding/identiteit
+
+### Usage Tracking
+- **Implementatie:** Supabase tabel `usage_logs` met RLS policies
+- **Wat wordt gelogd:** `calculation` en `pdf_view` events per gebruiker
+- **Data:** user_id, action_type, case_id, case_name, timestamp
+- **Reden:** Inzicht in gebruik van de tool per gebruiker

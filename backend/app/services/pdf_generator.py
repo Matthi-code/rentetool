@@ -625,7 +625,7 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
         for p in periodes:
             periode_str = f"{format_datum(p.get('start', ''))} - {format_datum(p.get('eind', ''))}"
             if p.get("is_kapitalisatie"):
-                periode_str += " ↻"
+                periode_str += " (K)"
 
             data.append([
                 Paragraph(periode_str, mono_left),
@@ -649,11 +649,11 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
                             parts.append(f'{type_label}: <font face="Courier"><b>{format_bedrag(t.get("bedrag", 0))}</b></font>')
 
                         db_kenmerk = db.get('kenmerk', '') or ''
-                        payment_text = f'💰 Betaling {db_kenmerk} op <font face="Courier">{format_datum(period_end)}</font>: {" | ".join(parts)}'
+                        payment_text = f'<b>&gt;&gt; Betaling</b> {db_kenmerk} op <font face="Courier">{format_datum(period_end)}</font>: {" | ".join(parts)}'
 
                         data.append([
                             Paragraph(f'<font color="#16a34a">{payment_text}</font>',
-                                      ParagraphStyle('Payment', fontSize=8)),
+                                      ParagraphStyle('Payment', fontSize=8, leftIndent=0)),
                             "", "", "", ""
                         ])
                         row_colors.append('payment')
@@ -691,9 +691,9 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
         table.setStyle(table_style)
         elements.append(table)
 
-        # Legend - matching webapp exactly
+        # Legend
         elements.append(Paragraph(
-            f'<font size="7" color="#64748b"><font color="#3b82f6">↻</font> = kapitalisatie (rente bij hoofdsom)  |  <font color="#16a34a">💰</font> = betaling ontvangen</font>',
+            f'<font size="7" color="#64748b"><font color="#3b82f6">(K)</font> = kapitalisatie (rente bij hoofdsom)  |  <font color="#16a34a">&gt;&gt;</font> = betaling ontvangen</font>',
             styles['Normal']
         ))
 
