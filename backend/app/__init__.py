@@ -1,0 +1,3 @@
+"""
+Rentetool Backend - FastAPI Application
+"""
