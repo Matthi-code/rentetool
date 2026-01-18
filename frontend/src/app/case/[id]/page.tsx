@@ -822,6 +822,18 @@ export default function CaseDetailPage() {
                   <AccordionTrigger className="hover:no-underline hover:bg-muted/30 px-4">
                     <div className="flex items-center gap-3 w-full">
                       <span className="font-medium">{v.kenmerk}</span>
+                      {(() => {
+                        const vordInfo = caseData.vorderingen.find(vd => vd.kenmerk === v.kenmerk);
+                        if (vordInfo) {
+                          return (
+                            <Badge variant="outline" className="text-xs bg-muted/50">
+                              {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
+                              {vordInfo.opslag ? ` ${vordInfo.opslag}%` : ''}
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
                       <Badge
                         variant={v.status === 'VOLDAAN' ? 'outline' : 'default'}
                         className={v.status === 'VOLDAAN' ? 'bg-green-50 text-green-700 border-green-300' : ''}
@@ -881,24 +893,24 @@ export default function CaseDetailPage() {
                                 return (
                                   <React.Fragment key={i}>
                                     <TableRow className={p.is_kapitalisatie ? 'bg-blue-50' : ''}>
-                                      <TableCell>
+                                      <TableCell className="font-mono">
                                         {formatDatum(p.start)} - {formatDatum(p.eind)}
                                         {p.is_kapitalisatie && <span className="ml-1 text-blue-600 font-medium">↻</span>}
                                       </TableCell>
-                                      <TableCell className="text-right">{p.dagen}</TableCell>
-                                      <TableCell className="text-right">{formatBedrag(p.hoofdsom)}</TableCell>
-                                      <TableCell className="text-right">{formatPercentage(p.rente_pct)}</TableCell>
-                                      <TableCell className="text-right">{formatBedrag(p.rente)}</TableCell>
+                                      <TableCell className="text-right font-mono">{p.dagen}</TableCell>
+                                      <TableCell className="text-right font-mono">{formatBedrag(p.hoofdsom)}</TableCell>
+                                      <TableCell className="text-right font-mono">{formatPercentage(p.rente_pct)}</TableCell>
+                                      <TableCell className="text-right font-mono">{formatBedrag(p.rente)}</TableCell>
                                     </TableRow>
                                     {betalingOpEinddatum && toerekeningen.length > 0 && (
                                       <TableRow className="bg-green-100 border-l-4 border-l-green-500">
                                         <TableCell colSpan={5} className="py-2">
                                           <div className="flex items-center gap-2 text-green-800">
                                             <span className="font-bold text-lg">💰</span>
-                                            <span className="font-medium">
+                                            <span className="font-medium font-mono">
                                               Betaling {betalingOpEinddatum.kenmerk || ''} op {formatDatum(betalingOpEinddatum.datum)}:
                                             </span>
-                                            <span className="ml-2">
+                                            <span className="ml-2 font-mono">
                                               {toerekeningen.map((t, ti) => (
                                                 <span key={ti} className="mr-3">
                                                   <span className="text-green-600">{t.type}:</span>{' '}
