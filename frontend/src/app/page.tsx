@@ -49,6 +49,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
+  const [newCaseReference, setNewCaseReference] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // View mode (persisted in localStorage)
@@ -116,11 +117,13 @@ export default function Dashboard() {
     try {
       const newCase = await createCase({
         naam: newCaseName.trim(),
+        klant_referentie: newCaseReference.trim() || undefined,
         einddatum: getToday(),
         strategie: 'A',
       });
       setCases([newCase, ...cases]);
       setNewCaseName('');
+      setNewCaseReference('');
       setDialogOpen(false);
       router.push(`/case/${newCase.id}`);
     } catch (err) {
@@ -256,15 +259,25 @@ export default function Dashboard() {
                 Voer een naam in voor de nieuwe zaak (bijv. klantnaam of zaaknummer).
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <label className="text-sm font-medium mb-2 block">Zaaknaam</label>
-              <Input
-                placeholder="Bijv. Jansen/De Vries of 2024-001"
-                value={newCaseName}
-                onChange={(e) => setNewCaseName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateCase()}
-                autoFocus
-              />
+            <div className="py-4 space-y-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Zaaknaam</label>
+                <Input
+                  placeholder="Bijv. Jansen/De Vries of 2024-001"
+                  value={newCaseName}
+                  onChange={(e) => setNewCaseName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-2 block">Referentie <span className="text-muted-foreground font-normal">(optioneel)</span></label>
+                <Input
+                  placeholder="Bijv. uw dossiernummer"
+                  value={newCaseReference}
+                  onChange={(e) => setNewCaseReference(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateCase()}
+                />
+              </div>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -420,42 +433,42 @@ export default function Dashboard() {
         /* Table View */
         <Card>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="text-sm">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none"
+                    className="cursor-pointer hover:bg-muted/80 select-none text-xs"
                     onClick={() => handleSort('naam')}
                   >
                     Naam <SortIndicator field="naam" />
                   </TableHead>
-                  <TableHead>Referentie</TableHead>
+                  <TableHead className="text-xs">Referentie</TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-center"
+                    className="cursor-pointer hover:bg-muted/80 select-none text-center text-xs"
                     onClick={() => handleSort('vorderingen_count')}
                   >
                     Vord. <SortIndicator field="vorderingen_count" />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none text-center"
+                    className="cursor-pointer hover:bg-muted/80 select-none text-center text-xs"
                     onClick={() => handleSort('deelbetalingen_count')}
                   >
                     Bet. <SortIndicator field="deelbetalingen_count" />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none"
+                    className="cursor-pointer hover:bg-muted/80 select-none text-xs"
                     onClick={() => handleSort('einddatum')}
                   >
                     Einddatum <SortIndicator field="einddatum" />
                   </TableHead>
                   <TableHead
-                    className="cursor-pointer hover:bg-muted/80 select-none"
+                    className="cursor-pointer hover:bg-muted/80 select-none text-xs"
                     onClick={() => handleSort('created_at')}
                   >
                     Aangemaakt <SortIndicator field="created_at" />
                   </TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px] text-center">Acties</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="w-[60px] text-center text-xs">Acties</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -465,15 +478,15 @@ export default function Dashboard() {
                     className="cursor-pointer hover:bg-muted/30"
                     onClick={() => router.push(`/case/${c.id}`)}
                   >
-                    <TableCell className="font-medium">{c.naam}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="font-medium py-2">{c.naam}</TableCell>
+                    <TableCell className="text-muted-foreground py-2">
                       {c.klant_referentie || '-'}
                     </TableCell>
-                    <TableCell className="text-center">{c.vorderingen_count ?? 0}</TableCell>
-                    <TableCell className="text-center">{c.deelbetalingen_count ?? 0}</TableCell>
-                    <TableCell>{formatDatum(c.einddatum)}</TableCell>
-                    <TableCell>{formatDatum(c.created_at)}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-center py-2">{c.vorderingen_count ?? 0}</TableCell>
+                    <TableCell className="text-center py-2">{c.deelbetalingen_count ?? 0}</TableCell>
+                    <TableCell className="py-2">{formatDatum(c.einddatum)}</TableCell>
+                    <TableCell className="py-2">{formatDatum(c.created_at)}</TableCell>
+                    <TableCell className="py-2">
                       <SharedBadge sharing={c.sharing} />
                     </TableCell>
                     <TableCell className="text-center">
