@@ -327,6 +327,8 @@ export interface UserStats {
   created_at: string;
   cases_count: number;
   shared_with_count: number;
+  calculations_count: number;
+  pdf_views_count: number;
   last_activity: string | null;
 }
 

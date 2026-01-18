@@ -38,17 +38,6 @@ async def require_admin(user_id: str = Depends(get_current_user)) -> str:
     return user_id
 
 
-class UserStats(BaseModel):
-    id: str
-    email: str
-    display_name: str | None
-    email_domain: str
-    created_at: datetime
-    cases_count: int
-    shared_with_count: int
-    last_activity: datetime | None
-
-
 class AdminStats(BaseModel):
     total_users: int
     total_cases: int
@@ -88,6 +77,19 @@ async def get_admin_stats(admin_id: str = Depends(require_admin)):
     )
 
 
+class UserStats(BaseModel):
+    id: str
+    email: str
+    display_name: str | None
+    email_domain: str
+    created_at: datetime
+    cases_count: int
+    shared_with_count: int
+    calculations_count: int
+    pdf_views_count: int
+    last_activity: datetime | None
+
+
 @router.get("/users", response_model=List[UserStats])
 async def list_users(admin_id: str = Depends(require_admin)):
     """List all users with their statistics."""
@@ -95,6 +97,21 @@ async def list_users(admin_id: str = Depends(require_admin)):
 
     # Get all user profiles
     profiles = db.table('user_profiles').select('*').order('created_at', desc=True).execute()
+
+    # Get all usage counts in bulk
+    try:
+        all_usage = db.table('usage_logs').select('user_id, action_type').execute()
+        usage_by_user: dict[str, dict[str, int]] = {}
+        for log in all_usage.data:
+            uid = log.get('user_id')
+            if uid:
+                if uid not in usage_by_user:
+                    usage_by_user[uid] = {'calculation': 0, 'pdf_view': 0}
+                action = log.get('action_type')
+                if action in usage_by_user[uid]:
+                    usage_by_user[uid][action] += 1
+    except:
+        usage_by_user = {}
 
     result = []
     for profile in profiles.data:
@@ -111,6 +128,9 @@ async def list_users(admin_id: str = Depends(require_admin)):
         except:
             shared_with_count = 0
 
+        # Get usage counts
+        user_usage = usage_by_user.get(user_id, {'calculation': 0, 'pdf_view': 0})
+
         # Get last activity from usage_logs
         try:
             last_log = db.table('usage_logs').select('created_at').eq('user_id', user_id).order('created_at', desc=True).limit(1).execute()
@@ -126,6 +146,8 @@ async def list_users(admin_id: str = Depends(require_admin)):
             created_at=profile['created_at'],
             cases_count=cases_count,
             shared_with_count=shared_with_count,
+            calculations_count=user_usage['calculation'],
+            pdf_views_count=user_usage['pdf_view'],
             last_activity=last_activity
         ))
 

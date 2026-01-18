@@ -27,6 +27,7 @@ export default function AdminPage() {
   const [cases, setCases] = useState<AdminCase[]>([]);
   const [usageLogs, setUsageLogs] = useState<AdminUsageLog[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>('users');
+  const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,18 +85,20 @@ export default function AdminPage() {
     activeView === 'calculations' ? log.action_type === 'calculation' : log.action_type === 'pdf_view'
   );
 
-  // Group users by domain
+  // Group users by domain with totals
   const usersByDomain = users.reduce((acc, user) => {
     const domain = user.email_domain;
     if (!acc[domain]) {
-      acc[domain] = [];
+      acc[domain] = { users: [], totalCalcs: 0, totalPdfs: 0 };
     }
-    acc[domain].push(user);
+    acc[domain].users.push(user);
+    acc[domain].totalCalcs += user.calculations_count;
+    acc[domain].totalPdfs += user.pdf_views_count;
     return acc;
-  }, {} as Record<string, UserStats[]>);
+  }, {} as Record<string, { users: UserStats[]; totalCalcs: number; totalPdfs: number }>);
 
   const sortedDomains = Object.keys(usersByDomain).sort((a, b) =>
-    usersByDomain[b].length - usersByDomain[a].length
+    usersByDomain[b].users.length - usersByDomain[a].users.length
   );
 
   if (authLoading || loading) {
@@ -229,53 +232,75 @@ export default function AdminPage() {
         <>
           {/* Users Table - Grouped by Domain */}
           {activeView === 'users' && (
-            <div className="space-y-6">
-              {sortedDomains.map((domain) => (
-                <Card key={domain}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="font-serif flex items-center gap-3">
-                      <span className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm">
-                        {domain}
-                      </span>
-                      <span className="text-muted-foreground text-sm font-normal">
-                        {usersByDomain[domain].length} {usersByDomain[domain].length === 1 ? 'gebruiker' : 'gebruikers'}
-                      </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead>Email</TableHead>
-                            <TableHead>Naam</TableHead>
-                            <TableHead className="text-center">Zaken</TableHead>
-                            <TableHead className="text-center">Gedeeld</TableHead>
-                            <TableHead>Geregistreerd</TableHead>
-                            <TableHead>Laatste activiteit</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {usersByDomain[domain].map((u) => (
-                            <TableRow key={u.id}>
-                              <TableCell className="font-medium">{u.email}</TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {u.display_name || '-'}
-                              </TableCell>
-                              <TableCell className="text-center">{u.cases_count}</TableCell>
-                              <TableCell className="text-center">{u.shared_with_count}</TableCell>
-                              <TableCell>{formatDatum(u.created_at)}</TableCell>
-                              <TableCell>
-                                {u.last_activity ? formatDatum(u.last_activity) : '-'}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+            <div className="space-y-4">
+              {sortedDomains.map((domain) => {
+                const domainData = usersByDomain[domain];
+                const isExpanded = expandedDomain === domain;
+                return (
+                  <Card key={domain} className="overflow-hidden">
+                    <div
+                      className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => setExpandedDomain(isExpanded ? null : domain)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{isExpanded ? '▼' : '▶'}</span>
+                          <span className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium">
+                            {domain}
+                          </span>
+                          <span className="text-muted-foreground text-sm">
+                            {domainData.users.length} {domainData.users.length === 1 ? 'gebruiker' : 'gebruikers'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-6 text-sm">
+                          <div className="text-center">
+                            <div className="font-bold text-lg">{domainData.totalCalcs}</div>
+                            <div className="text-muted-foreground text-xs">Berekeningen</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-bold text-lg">{domainData.totalPdfs}</div>
+                            <div className="text-muted-foreground text-xs">PDF Views</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    {isExpanded && (
+                      <CardContent className="pt-0 border-t">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead>Email</TableHead>
+                                <TableHead>Naam</TableHead>
+                                <TableHead className="text-center">Zaken</TableHead>
+                                <TableHead className="text-center">Berekeningen</TableHead>
+                                <TableHead className="text-center">PDF Views</TableHead>
+                                <TableHead>Laatste activiteit</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {domainData.users.map((u) => (
+                                <TableRow key={u.id}>
+                                  <TableCell className="font-medium">{u.email}</TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {u.display_name || '-'}
+                                  </TableCell>
+                                  <TableCell className="text-center">{u.cases_count}</TableCell>
+                                  <TableCell className="text-center font-mono">{u.calculations_count}</TableCell>
+                                  <TableCell className="text-center font-mono">{u.pdf_views_count}</TableCell>
+                                  <TableCell>
+                                    {u.last_activity ? formatDatum(u.last_activity) : '-'}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
               {users.length === 0 && (
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
