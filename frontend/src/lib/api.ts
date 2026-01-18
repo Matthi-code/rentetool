@@ -346,3 +346,30 @@ export async function getAdminStats(): Promise<AdminStats> {
 export async function getAdminUsers(): Promise<UserStats[]> {
   return fetchApi<UserStats[]>('/api/admin/users');
 }
+
+export interface AdminCase {
+  id: string;
+  naam: string;
+  klant_referentie: string | null;
+  einddatum: string;
+  owner_email: string;
+  vorderingen_count: number;
+  deelbetalingen_count: number;
+  created_at: string;
+}
+
+export async function getAdminCases(): Promise<AdminCase[]> {
+  return fetchApi<AdminCase[]>('/api/admin/cases');
+}
+
+export interface AdminUsageLog {
+  id: string;
+  user_email: string;
+  action_type: 'calculation' | 'pdf_view';
+  case_name: string | null;
+  created_at: string;
+}
+
+export async function getAdminUsageLogs(): Promise<AdminUsageLog[]> {
+  return fetchApi<AdminUsageLog[]>('/api/admin/usage-logs');
+}

@@ -138,6 +138,83 @@ async def check_admin(admin_id: str = Depends(require_admin)):
     return {"is_admin": True}
 
 
+class AdminCase(BaseModel):
+    id: str
+    naam: str
+    klant_referentie: str | None
+    einddatum: str
+    owner_email: str
+    vorderingen_count: int
+    deelbetalingen_count: int
+    created_at: datetime
+
+
+@router.get("/cases", response_model=List[AdminCase])
+async def list_all_cases(admin_id: str = Depends(require_admin)):
+    """List all cases with owner info."""
+    db = get_db()
+
+    cases = db.table('cases').select(
+        '*, vorderingen(count), deelbetalingen(count)'
+    ).order('created_at', desc=True).execute()
+
+    # Get owner emails
+    user_ids = list(set(c['user_id'] for c in cases.data))
+    users = db.table('user_profiles').select('id, email').in_('id', user_ids).execute()
+    users_map = {u['id']: u['email'] for u in users.data}
+
+    result = []
+    for c in cases.data:
+        vord_count = c.get('vorderingen', [{}])[0].get('count', 0) if c.get('vorderingen') else 0
+        deel_count = c.get('deelbetalingen', [{}])[0].get('count', 0) if c.get('deelbetalingen') else 0
+
+        result.append(AdminCase(
+            id=c['id'],
+            naam=c['naam'],
+            klant_referentie=c.get('klant_referentie'),
+            einddatum=c['einddatum'],
+            owner_email=users_map.get(c['user_id'], 'onbekend'),
+            vorderingen_count=vord_count,
+            deelbetalingen_count=deel_count,
+            created_at=c['created_at']
+        ))
+
+    return result
+
+
+class AdminUsageLog(BaseModel):
+    id: str
+    user_email: str
+    action_type: str
+    case_name: str | None
+    created_at: datetime
+
+
+@router.get("/usage-logs", response_model=List[AdminUsageLog])
+async def list_usage_logs(admin_id: str = Depends(require_admin)):
+    """List all usage logs with user info."""
+    db = get_db()
+
+    logs = db.table('usage_logs').select('*').order('created_at', desc=True).limit(500).execute()
+
+    # Get user emails
+    user_ids = list(set(l['user_id'] for l in logs.data if l.get('user_id')))
+    users = db.table('user_profiles').select('id, email').in_('id', user_ids).execute() if user_ids else type('obj', (object,), {'data': []})()
+    users_map = {u['id']: u['email'] for u in users.data}
+
+    result = []
+    for l in logs.data:
+        result.append(AdminUsageLog(
+            id=l['id'],
+            user_email=users_map.get(l.get('user_id'), 'onbekend'),
+            action_type=l['action_type'],
+            case_name=l.get('case_name'),
+            created_at=l['created_at']
+        ))
+
+    return result
+
+
 @router.post("/sync-profiles")
 async def sync_user_profiles(admin_id: str = Depends(require_admin)):
     """Sync user_profiles with auth.users - create missing profiles."""
