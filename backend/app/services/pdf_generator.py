@@ -64,44 +64,74 @@ MUTED_TEXT = colors.HexColor("#64748b")
 PAYMENT_BG = colors.HexColor("#d1fae5")  # Mint green for payment rows
 
 
-def format_bedrag(bedrag: Any) -> str:
+def format_bedrag(bedrag: Any, with_font: bool = False) -> str:
     """Format amount as Dutch currency."""
     if bedrag is None:
-        return "€ 0,00"
-    try:
-        if isinstance(bedrag, str):
-            bedrag = Decimal(bedrag)
-        formatted = f"{bedrag:,.2f}"
-        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
-        return f"€ {formatted}"
-    except:
-        return "€ 0,00"
+        result = "€ 0,00"
+    else:
+        try:
+            if isinstance(bedrag, str):
+                bedrag = Decimal(bedrag)
+            formatted = f"{bedrag:,.2f}"
+            formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+            result = f"€ {formatted}"
+        except:
+            result = "€ 0,00"
+
+    if with_font:
+        return f'<font face="Courier">{result}</font>'
+    return result
 
 
-def format_percentage(pct: Any) -> str:
+def format_percentage(pct: Any, with_font: bool = False) -> str:
     """Format percentage in Dutch style."""
     if pct is None:
-        return "0,00%"
-    try:
-        if isinstance(pct, str):
-            pct = Decimal(pct)
-        return f"{float(pct) * 100:.2f}%".replace(".", ",")
-    except:
-        return "0,00%"
+        result = "0,00%"
+    else:
+        try:
+            if isinstance(pct, str):
+                pct = Decimal(pct)
+            result = f"{float(pct) * 100:.2f}%".replace(".", ",")
+        except:
+            result = "0,00%"
+
+    if with_font:
+        return f'<font face="Courier">{result}</font>'
+    return result
 
 
-def format_datum(datum: Any) -> str:
+def format_datum(datum: Any, with_font: bool = False) -> str:
     """Format date in Dutch style."""
     if datum is None:
-        return "-"
-    if isinstance(datum, str):
+        result = "-"
+    elif isinstance(datum, str):
         if "T" in datum:
             datum = datum.split("T")[0]
         parts = datum.split("-")
         if len(parts) == 3:
-            return f"{parts[2]}-{parts[1]}-{parts[0]}"
-        return datum
-    return datum.strftime("%d-%m-%Y")
+            result = f"{parts[2]}-{parts[1]}-{parts[0]}"
+        else:
+            result = datum
+    else:
+        result = datum.strftime("%d-%m-%Y")
+
+    if with_font:
+        return f'<font face="Courier">{result}</font>'
+    return result
+
+
+def format_opslag(opslag: Any) -> str:
+    """Format opslag percentage correctly (handle both decimal and percentage input)."""
+    if not opslag:
+        return ""
+    try:
+        opslag_val = float(opslag)
+        # If value is <= 1, it's likely a decimal (0.01 = 1%), otherwise it's already a percentage
+        if opslag_val <= 1:
+            opslag_val = opslag_val * 100
+        return f"+{opslag_val:.0f}%"
+    except:
+        return ""
 
 
 def _add_page_header_and_watermark(canvas, doc):
@@ -226,8 +256,12 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     story.append(Paragraph("SPECIFICATIE PER VORDERING", styles['SectionTitle']))
     story.append(Spacer(1, 0.3*cm))
 
+    # Create lookup dict for vordering input data (for rentetype)
+    vord_input_lookup = {v.get("kenmerk"): v for v in vorderingen_input}
+
     for v in vorderingen_result:
-        story.extend(_build_vordering_specification(v, deelbetalingen_result, styles))
+        vord_input = vord_input_lookup.get(v.get("kenmerk"), {})
+        story.extend(_build_vordering_specification(v, vord_input, deelbetalingen_result, styles))
 
     # ===== DISCLAIMER =====
     story.append(Spacer(1, 0.5*cm))
@@ -471,7 +505,12 @@ def _build_afgelost_block(totalen: Dict, styles) -> Table:
 
 
 def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, styles) -> Table:
-    """Build vordering summary table exactly like webapp."""
+    """Build vordering summary table exactly like webapp with monospace numbers."""
+    mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
+    mono_green = ParagraphStyle('MonoGreen', fontName='Courier', fontSize=8, alignment=TA_RIGHT, textColor=SUCCESS_COLOR)
+    mono_bold = ParagraphStyle('MonoBold', fontName='Courier-Bold', fontSize=8, alignment=TA_RIGHT)
+    mono_primary = ParagraphStyle('MonoPrimary', fontName='Courier-Bold', fontSize=8, alignment=TA_RIGHT, textColor=PRIMARY_COLOR)
+
     header = ["Vordering", "Hoofdsom", "Kosten", "Rente", "Afg. HS", "Afg. Kst", "Afg. Rnt", "Openstaand"]
     data = [header]
 
@@ -482,25 +521,25 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
 
         data.append([
             kenmerk,
-            format_bedrag(v.get("oorspronkelijk_bedrag", 0)),
-            format_bedrag(v.get("kosten", 0)),
-            format_bedrag(v.get("totale_rente", 0)),
-            format_bedrag(v.get("afgelost_hoofdsom", 0)),
-            format_bedrag(v.get("afgelost_kosten", 0)),
-            format_bedrag(v.get("afgelost_rente", 0)),
-            openstaand,
+            Paragraph(format_bedrag(v.get("oorspronkelijk_bedrag", 0)), mono_style),
+            Paragraph(format_bedrag(v.get("kosten", 0)), mono_style),
+            Paragraph(format_bedrag(v.get("totale_rente", 0)), mono_style),
+            Paragraph(format_bedrag(v.get("afgelost_hoofdsom", 0)), mono_green),
+            Paragraph(format_bedrag(v.get("afgelost_kosten", 0)), mono_green),
+            Paragraph(format_bedrag(v.get("afgelost_rente", 0)), mono_green),
+            Paragraph(openstaand, mono_bold),
         ])
 
     # Totaal row
     data.append([
         "Totaal",
-        format_bedrag(totalen.get("oorspronkelijk", 0)),
-        format_bedrag(totalen.get("kosten", 0)),
-        format_bedrag(totalen.get("rente", 0)),
-        format_bedrag(totalen.get("afgelost_hoofdsom", 0)),
-        format_bedrag(totalen.get("afgelost_kosten", 0)),
-        format_bedrag(totalen.get("afgelost_rente", 0)),
-        format_bedrag(totalen.get("openstaand", 0)),
+        Paragraph(format_bedrag(totalen.get("oorspronkelijk", 0)), mono_bold),
+        Paragraph(format_bedrag(totalen.get("kosten", 0)), mono_bold),
+        Paragraph(format_bedrag(totalen.get("rente", 0)), mono_bold),
+        Paragraph(format_bedrag(totalen.get("afgelost_hoofdsom", 0)), mono_green),
+        Paragraph(format_bedrag(totalen.get("afgelost_kosten", 0)), mono_green),
+        Paragraph(format_bedrag(totalen.get("afgelost_rente", 0)), mono_green),
+        Paragraph(format_bedrag(totalen.get("openstaand", 0)), mono_primary),
     ])
 
     col_widths = [3*cm, 2*cm, 1.7*cm, 2.2*cm, 1.7*cm, 1.7*cm, 1.7*cm, 2.2*cm]
@@ -513,21 +552,14 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
         ('BACKGROUND', (0, 0), (-1, 0), MUTED_BG),
         ('TEXTCOLOR', (0, 0), (-1, 0), MUTED_TEXT),
 
-        # Body
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        # Body - let Paragraph handle fonts for number columns
         ('FONTSIZE', (0, 1), (-1, -1), 8),
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-
-        # Afgelost columns green
-        ('TEXTCOLOR', (4, 1), (6, -2), SUCCESS_COLOR),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
 
         # Totaal row
-        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (0, -1), (0, -1), 'Helvetica-Bold'),
         ('BACKGROUND', (0, -1), (-1, -1), MUTED_BG),
         ('LINEABOVE', (0, -1), (-1, -1), 1, PRIMARY_COLOR),
-        ('TEXTCOLOR', (4, -1), (6, -1), SUCCESS_COLOR),
-        ('TEXTCOLOR', (7, -1), (7, -1), PRIMARY_COLOR),
 
         # Grid
         ('GRID', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
@@ -546,7 +578,7 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
     return table
 
 
-def _build_vordering_specification(v: Dict, deelbetalingen: List[Dict], styles) -> List:
+def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: List[Dict], styles) -> List:
     """Build compact specification for one vordering with payment rows."""
     elements = []
 
@@ -555,21 +587,31 @@ def _build_vordering_specification(v: Dict, deelbetalingen: List[Dict], styles) 
     openstaand = format_bedrag(v.get("openstaand", 0))
     voldaan_datum = v.get("voldaan_datum")
 
+    # Rentetype badge
+    rentetype = vord_input.get("rentetype", 1)
+    rentetype_label = RENTETYPE_SHORT.get(rentetype, f"Type {rentetype}")
+    opslag = vord_input.get("opslag")
+    opslag_str = format_opslag(opslag) if opslag else ""
+    rentetype_badge = f'<font size="8" color="#64748b">[{rentetype_label}{" " + opslag_str if opslag_str else ""}]</font>'
+
     # Status badge
     if status == "VOLDAAN":
         status_badge = f'<font color="#16a34a">[VOLDAAN]</font>'
         if voldaan_datum:
             status_badge += f' <font size="8" color="#64748b">(op {format_datum(voldaan_datum)})</font>'
     else:
-        status_badge = f'<font color="#64748b">[OPEN]</font>'
+        status_badge = f'<font color="#1e3a5f">[OPEN]</font>'
 
-    # Header line
-    header_text = f'<b>{kenmerk}</b> {status_badge}  <font size="9">Openstaand: <b>{openstaand}</b></font>'
+    # Header line with rentetype
+    header_text = f'<b>{kenmerk}</b> {rentetype_badge} {status_badge}  <font size="9">Openstaand: <font face="Courier"><b>{openstaand}</b></font></font>'
     elements.append(Paragraph(header_text, styles['VorderingHeader']))
 
-    # Build periods table with payment rows
+    # Build periods table with payment rows - using Paragraphs for monospace font
     periodes = v.get("periodes", [])
     if periodes:
+        mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=8, alignment=TA_RIGHT)
+        mono_left = ParagraphStyle('MonoLeft', fontName='Courier', fontSize=8, alignment=TA_LEFT)
+
         header = ["Periode", "Dagen", "Hoofdsom", "Rente %", "Rente"]
         data = [header]
         row_colors = []  # Track which rows are payment rows
@@ -577,14 +619,14 @@ def _build_vordering_specification(v: Dict, deelbetalingen: List[Dict], styles) 
         for p in periodes:
             periode_str = f"{format_datum(p.get('start', ''))} - {format_datum(p.get('eind', ''))}"
             if p.get("is_kapitalisatie"):
-                periode_str += " *"
+                periode_str += " ↻"
 
             data.append([
-                periode_str,
-                str(p.get("dagen", 0)),
-                format_bedrag(p.get("hoofdsom", 0)),
-                format_percentage(p.get("rente_pct", 0)),
-                format_bedrag(p.get("rente", 0))
+                Paragraph(periode_str, mono_left),
+                Paragraph(str(p.get("dagen", 0)), mono_style),
+                Paragraph(format_bedrag(p.get("hoofdsom", 0)), mono_style),
+                Paragraph(format_percentage(p.get("rente_pct", 0)), mono_style),
+                Paragraph(format_bedrag(p.get("rente", 0)), mono_style)
             ])
             row_colors.append('normal' if not p.get("is_kapitalisatie") else 'kapitalisatie')
 
@@ -594,17 +636,17 @@ def _build_vordering_specification(v: Dict, deelbetalingen: List[Dict], styles) 
                 if db.get("datum") == period_end:
                     toerekeningen = [t for t in db.get("toerekeningen", []) if t.get("vordering") == kenmerk]
                     if toerekeningen:
-                        # Build payment description
+                        # Build payment description with monospace for amounts
                         parts = []
                         for t in toerekeningen:
                             type_label = {"kosten": "Kosten", "rente": "Rente", "hoofdsom": "Hoofdsom"}.get(t.get("type", ""), "")
-                            parts.append(f"{type_label}: {format_bedrag(t.get('bedrag', 0))}")
+                            parts.append(f'{type_label}: <font face="Courier"><b>{format_bedrag(t.get("bedrag", 0))}</b></font>')
 
                         db_kenmerk = db.get('kenmerk', '') or ''
-                        payment_text = f"Betaling {db_kenmerk} ({format_datum(period_end)}): {' | '.join(parts)}"
+                        payment_text = f'💰 Betaling {db_kenmerk} op <font face="Courier">{format_datum(period_end)}</font>: {" | ".join(parts)}'
 
                         data.append([
-                            Paragraph(f'<font color="#16a34a"><b>{payment_text}</b></font>',
+                            Paragraph(f'<font color="#16a34a">{payment_text}</font>',
                                       ParagraphStyle('Payment', fontSize=8)),
                             "", "", "", ""
                         ])
@@ -620,11 +662,9 @@ def _build_vordering_specification(v: Dict, deelbetalingen: List[Dict], styles) 
             ('BACKGROUND', (0, 0), (-1, 0), MUTED_BG),
             ('TEXTCOLOR', (0, 0), (-1, 0), MUTED_TEXT),
 
-            # Body
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            # Body - let Paragraph handle fonts
             ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
 
             # Grid
             ('GRID', (0, 0), (-1, -1), 0.5, BORDER_COLOR),
