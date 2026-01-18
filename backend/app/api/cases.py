@@ -242,14 +242,21 @@ async def get_case(case_id: str, user_id: str = Depends(get_current_user)):
         # Not owner - check if shared (only if sharing tables exist)
         if sharing_tables_exist:
             try:
-                share = db.table('case_shares').select('*, user_profiles!shared_by_user_id(id, email, display_name)').eq(
+                share = db.table('case_shares').select('*').eq(
                     'case_id', case_id
                 ).eq('shared_with_user_id', user_id).execute()
 
                 if not share.data:
                     raise HTTPException(status_code=404, detail="Case not found")
 
-                shared_by_user = share.data[0].get('user_profiles')
+                # Get shared_by user info separately
+                shared_by_user_id = share.data[0].get('shared_by_user_id')
+                shared_by_user = None
+                if shared_by_user_id:
+                    user_response = db.table('user_profiles').select('id, email, display_name').eq('id', shared_by_user_id).execute()
+                    if user_response.data:
+                        shared_by_user = user_response.data[0]
+
                 sharing_info = CaseShareInfo(
                     is_shared=True,
                     is_owner=False,
@@ -258,8 +265,9 @@ async def get_case(case_id: str, user_id: str = Depends(get_current_user)):
                 )
             except HTTPException:
                 raise  # Re-raise HTTP exceptions
-            except:
+            except Exception as e:
                 # Sharing tables query failed - user can't access others' cases
+                print(f"Sharing query failed: {e}")  # Debug logging
                 raise HTTPException(status_code=404, detail="Case not found")
         else:
             # No sharing tables - user can't access others' cases
