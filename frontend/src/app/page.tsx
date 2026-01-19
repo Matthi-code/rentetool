@@ -241,8 +241,9 @@ export default function Dashboard() {
     cardDescription: { small: 'text-[10px]', medium: 'text-xs', large: 'text-sm' },
     cardBody: { small: 'text-[10px]', medium: 'text-xs', large: 'text-sm' },
     badge: { small: 'text-[8px] px-1 py-0', medium: 'text-[10px] px-1.5 py-0', large: 'text-xs px-2 py-0.5' },
-    tableCell: { small: 'text-xs', medium: 'text-sm', large: 'text-base' },
-    tableHeader: { small: 'text-[10px]', medium: 'text-xs', large: 'text-sm' },
+    tableCell: { small: 'text-[11px]', medium: 'text-xs', large: 'text-sm' },
+    tableHeader: { small: 'text-[10px]', medium: 'text-[11px]', large: 'text-xs' },
+    tablePadding: { small: 'py-1', medium: 'py-1.5', large: 'py-2' },
   };
 
   if (authLoading || loading) {
@@ -540,23 +541,23 @@ export default function Dashboard() {
                     className="cursor-pointer hover:bg-muted/30"
                     onClick={() => router.push(`/case/${c.id}`)}
                   >
-                    <TableCell className="font-medium py-2">{c.naam}</TableCell>
-                    <TableCell className="text-muted-foreground py-2">
+                    <TableCell className={`font-medium ${fontClasses.tablePadding[fontSize]}`}>{c.naam}</TableCell>
+                    <TableCell className={`text-muted-foreground ${fontClasses.tablePadding[fontSize]}`}>
                       {c.klant_referentie || '-'}
                     </TableCell>
-                    <TableCell className="text-center py-2">{c.vorderingen_count ?? 0}</TableCell>
-                    <TableCell className="text-center py-2">{c.deelbetalingen_count ?? 0}</TableCell>
-                    <TableCell className="py-2">{formatDatum(c.einddatum)}</TableCell>
-                    <TableCell className="py-2">{formatDatum(c.created_at)}</TableCell>
-                    <TableCell className="py-2">
+                    <TableCell className={`text-center ${fontClasses.tablePadding[fontSize]}`}>{c.vorderingen_count ?? 0}</TableCell>
+                    <TableCell className={`text-center ${fontClasses.tablePadding[fontSize]}`}>{c.deelbetalingen_count ?? 0}</TableCell>
+                    <TableCell className={fontClasses.tablePadding[fontSize]}>{formatDatum(c.einddatum)}</TableCell>
+                    <TableCell className={fontClasses.tablePadding[fontSize]}>{formatDatum(c.created_at)}</TableCell>
+                    <TableCell className={fontClasses.tablePadding[fontSize]}>
                       <SharedBadge sharing={c.sharing} fontSize={fontSize} />
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className={`text-center ${fontClasses.tablePadding[fontSize]}`}>
                       {c.sharing?.is_owner === false ? (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 hover:bg-orange-100 hover:text-orange-600"
+                          className="h-6 w-6 p-0 hover:bg-orange-100 hover:text-orange-600"
                           onClick={(e) => {
                             e.stopPropagation();
                             setLeaveConfirmId(c.id);
@@ -569,7 +570,7 @@ export default function Dashboard() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          className="h-6 w-6 p-0 hover:bg-destructive/10 hover:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteConfirmId(c.id);
