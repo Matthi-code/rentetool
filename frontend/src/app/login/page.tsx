@@ -28,8 +28,24 @@ export default function LoginPage() {
       const hash = window.location.hash;
       const params = new URLSearchParams(window.location.search);
 
-      // Check for recovery token in hash
-      if (hash && hash.includes('type=recovery')) {
+      console.log('URL hash:', hash);
+      console.log('URL search:', window.location.search);
+
+      // Check for recovery token in hash (multiple formats)
+      if (hash) {
+        if (hash.includes('type=recovery') || hash.includes('type=magiclink')) {
+          setIsSetNewPassword(true);
+        }
+        // Also check hash params
+        const hashParams = new URLSearchParams(hash.substring(1));
+        if (hashParams.get('type') === 'recovery') {
+          setIsSetNewPassword(true);
+        }
+      }
+
+      // Check for reset=true in query params (our redirect indicator)
+      if (params.get('reset') === 'true' && !params.get('error_code')) {
+        // User came from reset link, check if we have a session
         setIsSetNewPassword(true);
       }
 
@@ -39,8 +55,8 @@ export default function LoginPage() {
       if (errorCode === 'otp_expired') {
         setError('De reset link is verlopen. Vraag een nieuwe aan.');
         setIsResetPassword(true);
-      } else if (errorDescription) {
-        setError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
+      } else if (errorCode) {
+        setError(errorDescription ? decodeURIComponent(errorDescription.replace(/\+/g, ' ')) : 'Er is een fout opgetreden');
       }
     }
   }, []);
