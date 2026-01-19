@@ -22,12 +22,25 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Check for password reset token in URL (Supabase uses hash fragments)
+  // Check for password reset token or errors in URL
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
+      const params = new URLSearchParams(window.location.search);
+
+      // Check for recovery token in hash
       if (hash && hash.includes('type=recovery')) {
         setIsSetNewPassword(true);
+      }
+
+      // Check for errors from Supabase redirect
+      const errorCode = params.get('error_code');
+      const errorDescription = params.get('error_description');
+      if (errorCode === 'otp_expired') {
+        setError('De reset link is verlopen. Vraag een nieuwe aan.');
+        setIsResetPassword(true);
+      } else if (errorDescription) {
+        setError(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
       }
     }
   }, []);
