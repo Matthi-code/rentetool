@@ -185,6 +185,6 @@ export const RENTETYPE_SHORT: Record<number, string> = {
 };
 
 export const STRATEGIE_LABELS: Record<string, string> = {
-  A: 'A - Meest bezwarend (art. 6:43 BW)',
-  B: 'B - Oudste eerst',
+  A: 'Meest bezwarend (art. 6:43 BW)',
+  B: 'Oudste eerst',
 };

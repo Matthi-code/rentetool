@@ -602,10 +602,10 @@ export default function CaseDetailPage() {
                   disabled={!canEdit}
                 />
               </div>
-              <div className="w-36">
+              <div className="min-w-[220px]">
                 <label className="text-xs text-muted-foreground mb-1 block">Strategie</label>
                 <Select value={caseData.strategie} onValueChange={(v) => handleUpdateStrategie(v as 'A' | 'B')} disabled={!canEdit}>
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger className="h-8 text-sm w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
