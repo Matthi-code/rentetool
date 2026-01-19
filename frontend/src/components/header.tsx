@@ -43,7 +43,7 @@ export function Header() {
                       onClick={() => router.push('/admin')}
                       className="text-primary-foreground hover:bg-white/10"
                     >
-                      Beheer
+                      <span className="mr-1">⚙</span> Beheer
                     </Button>
                   )}
                   <span className="text-sm opacity-70 hidden sm:block">

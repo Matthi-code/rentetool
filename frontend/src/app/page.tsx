@@ -271,7 +271,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="font-serif text-3xl font-bold text-primary leading-tight">Uw Zaken</h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             {cases.length === 0
               ? 'Maak uw eerste renteberekening aan'
               : `${cases.length} ${cases.length === 1 ? 'zaak' : 'zaken'} in beheer`}
