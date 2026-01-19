@@ -572,18 +572,12 @@ export default function CaseDetailPage() {
         </Card>
       )}
 
-      {/* Instellingen */}
-      <Card className="mb-6">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-serif">Instellingen</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Berekeningsparameters voor deze zaak
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Referentie</label>
+      {/* Zaak instellingen */}
+      <Card className="mb-4">
+        <CardContent className="py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-1 block">Referentie</label>
               <Input
                 value={localReference}
                 onChange={(e) => setLocalReference(e.target.value)}
@@ -593,31 +587,33 @@ export default function CaseDetailPage() {
                   }
                 }}
                 placeholder="Uw dossiernummer"
-                className="w-full"
+                className="h-8 text-sm"
                 disabled={!canEdit}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Einddatum berekening</label>
-              <Input
-                type="date"
-                value={caseData.einddatum}
-                onChange={(e) => handleUpdateEinddatum(e.target.value)}
-                className="w-full"
-                disabled={!canEdit}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Toerekeningsstrategie</label>
-              <Select value={caseData.strategie} onValueChange={(v) => handleUpdateStrategie(v as 'A' | 'B')} disabled={!canEdit}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A">{STRATEGIE_LABELS.A}</SelectItem>
-                  <SelectItem value="B">{STRATEGIE_LABELS.B}</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex gap-3">
+              <div className="w-32">
+                <label className="text-xs text-muted-foreground mb-1 block">Einddatum</label>
+                <Input
+                  type="date"
+                  value={caseData.einddatum}
+                  onChange={(e) => handleUpdateEinddatum(e.target.value)}
+                  className="h-8 text-sm"
+                  disabled={!canEdit}
+                />
+              </div>
+              <div className="w-36">
+                <label className="text-xs text-muted-foreground mb-1 block">Strategie</label>
+                <Select value={caseData.strategie} onValueChange={(v) => handleUpdateStrategie(v as 'A' | 'B')} disabled={!canEdit}>
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">{STRATEGIE_LABELS.A}</SelectItem>
+                    <SelectItem value="B">{STRATEGIE_LABELS.B}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
