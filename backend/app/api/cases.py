@@ -294,9 +294,8 @@ async def update_case(case_id: str, case: CaseCreate, user_id: str = Depends(get
     """Update a case."""
     db = get_db()
 
-    # Verify ownership
-    existing = db.table('cases').select('id').eq('id', case_id).eq('user_id', user_id).execute()
-    if not existing.data:
+    # Verify edit permission (owner or edit share)
+    if not can_edit_case(db, case_id, user_id):
         raise HTTPException(status_code=404, detail="Case not found")
 
     update_data = {
