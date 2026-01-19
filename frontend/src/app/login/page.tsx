@@ -11,20 +11,33 @@ import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signIn, signUp, resetPassword } = useAuth();
+  const { user, loading, signIn, signUp, resetPassword, updatePassword } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [isResetPassword, setIsResetPassword] = useState(false);
+  const [isSetNewPassword, setIsSetNewPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Check for password reset token in URL (Supabase uses hash fragments)
   useEffect(() => {
-    if (!loading && user) {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      if (hash && hash.includes('type=recovery')) {
+        setIsSetNewPassword(true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    // Don't redirect if user is setting new password
+    if (!loading && user && !isSetNewPassword) {
       router.push('/');
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, isSetNewPassword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +46,25 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      if (isResetPassword) {
+      if (isSetNewPassword) {
+        if (password !== confirmPassword) {
+          setError('Wachtwoorden komen niet overeen');
+          return;
+        }
+        if (password.length < 6) {
+          setError('Wachtwoord moet minimaal 6 tekens zijn');
+          return;
+        }
+        const { error } = await updatePassword(password);
+        if (error) {
+          setError(error.message);
+        } else {
+          setMessage('Wachtwoord succesvol gewijzigd!');
+          // Clear URL hash and redirect after short delay
+          window.location.hash = '';
+          setTimeout(() => router.push('/'), 1500);
+        }
+      } else if (isResetPassword) {
         const { error } = await resetPassword(email);
         if (error) {
           setError(error.message);
@@ -82,10 +113,18 @@ export default function LoginPage() {
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
-            {isResetPassword ? 'Wachtwoord vergeten' : isLogin ? 'Inloggen' : 'Registreren'}
+            {isSetNewPassword
+              ? 'Nieuw wachtwoord instellen'
+              : isResetPassword
+              ? 'Wachtwoord vergeten'
+              : isLogin
+              ? 'Inloggen'
+              : 'Registreren'}
           </CardTitle>
           <CardDescription>
-            {isResetPassword
+            {isSetNewPassword
+              ? 'Kies een nieuw wachtwoord voor uw account'
+              : isResetPassword
               ? 'Voer uw e-mailadres in om een reset link te ontvangen'
               : isLogin
               ? 'Log in om uw renteberekeningen te beheren'
@@ -94,21 +133,23 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mailadres</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="naam@voorbeeld.nl"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-              />
-            </div>
+            {!isSetNewPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mailadres</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="naam@voorbeeld.nl"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+            )}
             {!isResetPassword && (
               <div className="space-y-2">
-                <Label htmlFor="password">Wachtwoord</Label>
+                <Label htmlFor="password">{isSetNewPassword ? 'Nieuw wachtwoord' : 'Wachtwoord'}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -116,7 +157,22 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  autoComplete={isSetNewPassword ? 'new-password' : isLogin ? 'current-password' : 'new-password'}
+                  minLength={6}
+                />
+              </div>
+            )}
+            {isSetNewPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Bevestig wachtwoord</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
                   minLength={6}
                 />
               </div>
@@ -137,6 +193,8 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting
                 ? 'Even geduld...'
+                : isSetNewPassword
+                ? 'Wachtwoord opslaan'
                 : isResetPassword
                 ? 'Verstuur reset link'
                 : isLogin
@@ -146,7 +204,9 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center text-sm space-y-2">
-            {isResetPassword ? (
+            {isSetNewPassword ? (
+              null // No navigation needed when setting new password
+            ) : isResetPassword ? (
               <button
                 type="button"
                 className="text-primary hover:underline font-medium"
