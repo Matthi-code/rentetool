@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,6 +75,10 @@ export default function LoginPage() {
 
   return (
     <div className="container py-8 max-w-md mx-auto px-4">
+      {/* Decorative goose */}
+      <div className="flex justify-center mb-6">
+        <Image src="/gans.png" alt="Rentetool" width={120} height={120} className="opacity-80" />
+      </div>
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
