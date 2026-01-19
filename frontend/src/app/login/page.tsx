@@ -11,10 +11,18 @@ import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signIn, signUp, resetPassword, updatePassword } = useAuth();
+  const { user, loading, signIn, signUp, resetPassword, updatePassword, isPasswordRecovery } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [isSetNewPassword, setIsSetNewPassword] = useState(false);
+
+  // Auto-detect password recovery from auth context
+  useEffect(() => {
+    if (isPasswordRecovery) {
+      console.log('Setting isSetNewPassword from isPasswordRecovery');
+      setIsSetNewPassword(true);
+    }
+  }, [isPasswordRecovery]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -62,11 +70,11 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    // Don't redirect if user is setting new password
-    if (!loading && user && !isSetNewPassword) {
+    // Don't redirect if user is setting new password or in password recovery mode
+    if (!loading && user && !isSetNewPassword && !isPasswordRecovery) {
       router.push('/');
     }
-  }, [user, loading, router, isSetNewPassword]);
+  }, [user, loading, router, isSetNewPassword, isPasswordRecovery]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

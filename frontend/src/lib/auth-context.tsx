@@ -9,11 +9,13 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   demoMode: boolean;
+  isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
+  clearPasswordRecovery: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     // Check if Supabase is configured
@@ -62,10 +65,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Detect password recovery event
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('Password recovery detected!');
+        setIsPasswordRecovery(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -117,7 +127,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
+    if (!error) {
+      setIsPasswordRecovery(false);
+    }
     return { error };
+  };
+
+  const clearPasswordRecovery = () => {
+    setIsPasswordRecovery(false);
   };
 
   return (
@@ -127,11 +144,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         demoMode,
+        isPasswordRecovery,
         signIn,
         signUp,
         signOut,
         resetPassword,
         updatePassword,
+        clearPasswordRecovery,
       }}
     >
       {children}
