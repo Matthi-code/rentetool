@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signUp, resetPassword } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const [isResetPassword, setIsResetPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,14 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      if (isLogin) {
+      if (isResetPassword) {
+        const { error } = await resetPassword(email);
+        if (error) {
+          setError(error.message);
+        } else {
+          setMessage('Wachtwoord reset e-mail verzonden. Controleer uw inbox.');
+        }
+      } else if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
           setError(error.message);
@@ -69,10 +77,12 @@ export default function LoginPage() {
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
-            {isLogin ? 'Inloggen' : 'Registreren'}
+            {isResetPassword ? 'Wachtwoord vergeten' : isLogin ? 'Inloggen' : 'Registreren'}
           </CardTitle>
           <CardDescription>
-            {isLogin
+            {isResetPassword
+              ? 'Voer uw e-mailadres in om een reset link te ontvangen'
+              : isLogin
               ? 'Log in om uw renteberekeningen te beheren'
               : 'Maak een account aan om te beginnen'}
           </CardDescription>
@@ -91,19 +101,21 @@ export default function LoginPage() {
                 autoComplete="email"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Wachtwoord</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete={isLogin ? 'current-password' : 'new-password'}
-                minLength={6}
-              />
-            </div>
+            {!isResetPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Wachtwoord</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
+                  minLength={6}
+                />
+              </div>
+            )}
 
             {error && (
               <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
@@ -120,30 +132,59 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting
                 ? 'Even geduld...'
+                : isResetPassword
+                ? 'Verstuur reset link'
                 : isLogin
                 ? 'Inloggen'
                 : 'Account aanmaken'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            {isLogin ? (
+          <div className="mt-6 text-center text-sm space-y-2">
+            {isResetPassword ? (
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium"
+                onClick={() => {
+                  setIsResetPassword(false);
+                  setError(null);
+                  setMessage(null);
+                }}
+              >
+                ← Terug naar inloggen
+              </button>
+            ) : isLogin ? (
               <>
-                Nog geen account?{' '}
-                <button
-                  type="button"
-                  className="text-primary hover:underline font-medium"
-                  onClick={() => {
-                    setIsLogin(false);
-                    setError(null);
-                    setMessage(null);
-                  }}
-                >
-                  Registreren
-                </button>
+                <div>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:underline text-xs"
+                    onClick={() => {
+                      setIsResetPassword(true);
+                      setError(null);
+                      setMessage(null);
+                    }}
+                  >
+                    Wachtwoord vergeten?
+                  </button>
+                </div>
+                <div>
+                  Nog geen account?{' '}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => {
+                      setIsLogin(false);
+                      setError(null);
+                      setMessage(null);
+                    }}
+                  >
+                    Registreren
+                  </button>
+                </div>
               </>
             ) : (
-              <>
+              <div>
                 Al een account?{' '}
                 <button
                   type="button"
@@ -156,7 +197,7 @@ export default function LoginPage() {
                 >
                   Inloggen
                 </button>
-              </>
+              </div>
             )}
           </div>
         </CardContent>
