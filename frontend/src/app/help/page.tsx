@@ -128,50 +128,53 @@ export default function HelpPage() {
             Hoe wordt een deelbetaling verwerkt over meerdere vorderingen?
           </p>
 
-          <div className="bg-muted/20 p-6 rounded-lg font-mono text-xs overflow-x-auto">
-            <pre className="whitespace-pre">{`
-                         BETALING ONTVANGEN
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │  Betaling aangewezen  │
-                    │  aan vordering(en)?   │
-                    └───────────┬───────────┘
-                          │           │
-                         Ja          Nee
-                          │           │
-                          ▼           ▼
-              ┌─────────────────┐  ┌─────────────────┐
-              │ Aangewezen      │  │ Sorteer volgens │
-              │ vorderingen     │  │ strategie:      │
-              │ eerst           │  │ A: hoogste rente│
-              └────────┬────────┘  │ B: oudste eerst │
-                       │           └────────┬────────┘
-                       └─────────┬──────────┘
-                                 │
-                                 ▼
-        ┌────────────────────────────────────────────┐
-        │         PER VORDERING (Art. 6:44 BW)       │
-        │                                            │
-        │    1. KOSTEN  →  2. RENTE  →  3. HOOFDSOM  │
-        │                                            │
-        └────────────────────────┬───────────────────┘
-                                 │
-                                 ▼
-                    ┌───────────────────────┐
-                    │   Restant betaling?   │
-                    └───────────┬───────────┘
-                          │           │
-                         Ja          Nee
-                          │           │
-                          ▼           ▼
-              ┌─────────────────┐  ┌─────────────────┐
-              │ Volgende        │  │     KLAAR       │
-              │ vordering       │  │       ✓         │
-              └────────┬────────┘  └─────────────────┘
-                       │
-                       └──────► (herhaal)
-`}</pre>
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center">
+              <div className="font-semibold">BETALING ONTVANGEN</div>
+            </div>
+
+            <div className="flex justify-center">
+              <span className="text-2xl">↓</span>
+            </div>
+
+            <div className="p-4 bg-muted/30 rounded-lg text-center">
+              <div className="font-semibold mb-2">Stap 1: Welke vordering eerst?</div>
+              <div className="text-sm text-muted-foreground">
+                Aangewezen? → Die vordering(en) eerst<br />
+                Niet aangewezen? → Volgens strategie (A of B)
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <span className="text-2xl">↓</span>
+            </div>
+
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+              <div className="font-semibold mb-2">Stap 2: Binnen vordering (Art. 6:44 BW)</div>
+              <div className="flex justify-center gap-4 text-sm">
+                <span className="px-3 py-1 bg-white rounded border">1. KOSTEN</span>
+                <span className="text-xl">→</span>
+                <span className="px-3 py-1 bg-white rounded border">2. RENTE</span>
+                <span className="text-xl">→</span>
+                <span className="px-3 py-1 bg-white rounded border">3. HOOFDSOM</span>
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              <span className="text-2xl">↓</span>
+            </div>
+
+            <div className="p-4 bg-muted/30 rounded-lg text-center">
+              <div className="font-semibold mb-2">Stap 3: Restant?</div>
+              <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+                <div className="p-2 bg-white rounded border">
+                  <strong>Ja:</strong> Volgende vordering (herhaal)
+                </div>
+                <div className="p-2 bg-white rounded border">
+                  <strong>Nee:</strong> Klaar ✓
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
