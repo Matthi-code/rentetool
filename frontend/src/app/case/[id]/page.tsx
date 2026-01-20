@@ -1188,7 +1188,7 @@ export default function CaseDetailPage() {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Kosten (BIK, proceskosten)</label>
+              <label className="text-sm font-medium">Kosten (BIK)</label>
               <Input
                 type="number"
                 step="0.01"
@@ -1196,6 +1196,9 @@ export default function CaseDetailPage() {
                 onChange={(e) => setVorderingForm({ ...vorderingForm, kosten: e.target.value })}
                 placeholder="0.00"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Proceskosten met eigen ingangsdatum (bijv. 14 dagen na vonnis)? Voeg deze toe als aparte vordering.
+              </p>
             </div>
             {vorderingForm.rentetype === 5 && (
               <div>
