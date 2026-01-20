@@ -114,6 +114,12 @@ export default function CaseDetailPage() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
+  // Loading states for save/delete operations
+  const [savingVordering, setSavingVordering] = useState(false);
+  const [savingDeelbetaling, setSavingDeelbetaling] = useState(false);
+  const [deletingVorderingId, setDeletingVorderingId] = useState<string | null>(null);
+  const [deletingDeelbetalingId, setDeletingDeelbetalingId] = useState<string | null>(null);
+
   // Sort state for vorderingen (default: oldest first)
   const [vorderingenSortOrder, setVorderingenSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -325,7 +331,7 @@ export default function CaseDetailPage() {
   }
 
   async function handleSaveVordering() {
-    if (!caseData) return;
+    if (!caseData || savingVordering) return;
 
     const data = {
       kenmerk: vorderingForm.kenmerk,
@@ -337,6 +343,7 @@ export default function CaseDetailPage() {
       opslag_ingangsdatum: vorderingForm.opslag_ingangsdatum || undefined,
     };
 
+    setSavingVordering(true);
     try {
       if (editingVordering) {
         // Update existing
@@ -361,11 +368,14 @@ export default function CaseDetailPage() {
     } catch (err) {
       console.error(err);
       setError('Kon vordering niet opslaan');
+    } finally {
+      setSavingVordering(false);
     }
   }
 
   async function handleDeleteVordering(id: string) {
-    if (!caseData) return;
+    if (!caseData || deletingVorderingId) return;
+    setDeletingVorderingId(id);
     try {
       await deleteVordering(id);
       setCaseData({
@@ -375,6 +385,8 @@ export default function CaseDetailPage() {
       setResult(null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setDeletingVorderingId(null);
     }
   }
 
@@ -397,7 +409,7 @@ export default function CaseDetailPage() {
   }
 
   async function handleSaveDeelbetaling() {
-    if (!caseData) return;
+    if (!caseData || savingDeelbetaling) return;
 
     const data = {
       kenmerk: deelbetalingForm.kenmerk || undefined,
@@ -406,6 +418,7 @@ export default function CaseDetailPage() {
       aangewezen: deelbetalingForm.aangewezen,
     };
 
+    setSavingDeelbetaling(true);
     try {
       if (editingDeelbetaling) {
         // Update existing
@@ -430,11 +443,14 @@ export default function CaseDetailPage() {
     } catch (err) {
       console.error(err);
       setError('Kon deelbetaling niet opslaan');
+    } finally {
+      setSavingDeelbetaling(false);
     }
   }
 
   async function handleDeleteDeelbetaling(id: string) {
-    if (!caseData) return;
+    if (!caseData || deletingDeelbetalingId) return;
+    setDeletingDeelbetalingId(id);
     try {
       await deleteDeelbetaling(id);
       setCaseData({
@@ -444,6 +460,8 @@ export default function CaseDetailPage() {
       setResult(null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setDeletingDeelbetalingId(null);
     }
   }
 
@@ -634,7 +652,7 @@ export default function CaseDetailPage() {
             </p>
           </div>
           {canEdit && (
-            <Button size="sm" onClick={openAddVordering} className="shadow-sm">
+            <Button size="sm" onClick={openAddVordering} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
               + Toevoegen
             </Button>
           )}
@@ -646,7 +664,7 @@ export default function CaseDetailPage() {
                 Nog geen vorderingen toegevoegd
               </p>
               {canEdit && (
-                <Button variant="outline" onClick={openAddVordering}>
+                <Button variant="outline" onClick={openAddVordering} disabled={savingVordering}>
                   + Eerste vordering toevoegen
                 </Button>
               )}
@@ -702,6 +720,7 @@ export default function CaseDetailPage() {
                               onClick={() => openEditVordering(v)}
                               title="Bewerken"
                               className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                              disabled={deletingVorderingId === v.id}
                             >
                               <span className="text-base">✎</span>
                             </Button>
@@ -715,8 +734,13 @@ export default function CaseDetailPage() {
                               }}
                               title="Verwijderen"
                               className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              disabled={deletingVorderingId !== null}
                             >
-                              <span className="text-base">×</span>
+                              {deletingVorderingId === v.id ? (
+                                <span className="animate-spin text-base">⟳</span>
+                              ) : (
+                                <span className="text-base">×</span>
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -742,7 +766,7 @@ export default function CaseDetailPage() {
             </p>
           </div>
           {canEdit && (
-            <Button size="sm" onClick={openAddDeelbetaling} className="shadow-sm">
+            <Button size="sm" onClick={openAddDeelbetaling} className="shadow-sm" disabled={savingDeelbetaling || deletingDeelbetalingId !== null}>
               + Toevoegen
             </Button>
           )}
@@ -788,6 +812,7 @@ export default function CaseDetailPage() {
                               onClick={() => openEditDeelbetaling(d)}
                               title="Bewerken"
                               className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                              disabled={deletingDeelbetalingId === d.id}
                             >
                               <span className="text-base">✎</span>
                             </Button>
@@ -801,8 +826,13 @@ export default function CaseDetailPage() {
                               }}
                               title="Verwijderen"
                               className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              disabled={deletingDeelbetalingId !== null}
                             >
-                              <span className="text-base">×</span>
+                              {deletingDeelbetalingId === d.id ? (
+                                <span className="animate-spin text-base">⟳</span>
+                              ) : (
+                                <span className="text-base">×</span>
+                              )}
                             </Button>
                           </div>
                         </TableCell>
@@ -1204,19 +1234,27 @@ export default function CaseDetailPage() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setVorderingDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setVorderingDialogOpen(false)} disabled={savingVordering}>
               Annuleren
             </Button>
             <Button
               onClick={handleSaveVordering}
               disabled={
+                savingVordering ||
                 !vorderingForm.kenmerk ||
                 !vorderingForm.bedrag ||
                 !vorderingForm.datum ||
                 (vorderingForm.rentetype === 5 && !vorderingForm.opslag)
               }
             >
-              {editingVordering ? 'Opslaan' : 'Toevoegen'}
+              {savingVordering ? (
+                <>
+                  <span className="animate-spin mr-2">⟳</span>
+                  Bezig...
+                </>
+              ) : (
+                editingVordering ? 'Opslaan' : 'Toevoegen'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1325,14 +1363,21 @@ export default function CaseDetailPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeelbetalingDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDeelbetalingDialogOpen(false)} disabled={savingDeelbetaling}>
               Annuleren
             </Button>
             <Button
               onClick={handleSaveDeelbetaling}
-              disabled={!deelbetalingForm.bedrag || !deelbetalingForm.datum}
+              disabled={savingDeelbetaling || !deelbetalingForm.bedrag || !deelbetalingForm.datum}
             >
-              {editingDeelbetaling ? 'Opslaan' : 'Toevoegen'}
+              {savingDeelbetaling ? (
+                <>
+                  <span className="animate-spin mr-2">⟳</span>
+                  Bezig...
+                </>
+              ) : (
+                editingDeelbetaling ? 'Opslaan' : 'Toevoegen'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
