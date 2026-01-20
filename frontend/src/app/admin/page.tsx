@@ -30,7 +30,7 @@ import {
   type UserRole,
   type DomainOverview,
 } from '@/lib/api';
-import { formatDatum } from '@/lib/format';
+import { formatDatum, formatDatumTijd } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import {
   Select,
@@ -67,6 +67,8 @@ export default function AdminPage() {
   // Activity tab state
   const [activityDomainFilter, setActivityDomainFilter] = useState<string>('all');
   const [activitySortOrder, setActivitySortOrder] = useState<'desc' | 'asc'>('desc');
+  type ActivitySortField = 'user_email' | 'user_domain' | 'case_name' | 'created_at';
+  const [activitySortField, setActivitySortField] = useState<ActivitySortField>('created_at');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -672,16 +674,6 @@ export default function AdminPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Sortering:</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setActivitySortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                      >
-                        {activitySortOrder === 'desc' ? 'Nieuwste eerst ↓' : 'Oudste eerst ↑'}
-                      </Button>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -696,10 +688,38 @@ export default function AdminPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          <TableHead>Gebruiker</TableHead>
-                          <TableHead>Domein</TableHead>
-                          <TableHead>Zaak</TableHead>
-                          <TableHead>Datum/Tijd</TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('user_email'); setActivitySortOrder(prev => activitySortField === 'user_email' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'user_email' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Gebruiker {activitySortField === 'user_email' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('user_domain'); setActivitySortOrder(prev => activitySortField === 'user_domain' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'user_domain' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Domein {activitySortField === 'user_domain' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('case_name'); setActivitySortOrder(prev => activitySortField === 'case_name' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'case_name' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Zaak {activitySortField === 'case_name' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('created_at'); setActivitySortOrder(prev => activitySortField === 'created_at' ? (prev === 'asc' ? 'desc' : 'asc') : 'desc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'created_at' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Datum/Tijd {activitySortField === 'created_at' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
                           <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -708,9 +728,22 @@ export default function AdminPage() {
                           .filter((log) => log.action_type === 'calculation')
                           .filter((log) => activityDomainFilter === 'all' || log.user_domain === activityDomainFilter)
                           .sort((a, b) => {
-                            const dateA = new Date(a.created_at).getTime();
-                            const dateB = new Date(b.created_at).getTime();
-                            return activitySortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                            let comparison = 0;
+                            switch (activitySortField) {
+                              case 'user_email':
+                                comparison = (a.user_email || '').localeCompare(b.user_email || '');
+                                break;
+                              case 'user_domain':
+                                comparison = (a.user_domain || '').localeCompare(b.user_domain || '');
+                                break;
+                              case 'case_name':
+                                comparison = (a.case_name || '').localeCompare(b.case_name || '');
+                                break;
+                              case 'created_at':
+                                comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                                break;
+                            }
+                            return activitySortOrder === 'asc' ? comparison : -comparison;
                           })
                           .slice(0, 50)
                           .map((log) => (
@@ -718,7 +751,7 @@ export default function AdminPage() {
                               <TableCell className="font-medium">{log.user_email}</TableCell>
                               <TableCell className="text-muted-foreground">{log.user_domain || '-'}</TableCell>
                               <TableCell>{log.case_name || '-'}</TableCell>
-                              <TableCell className="font-mono text-sm">{formatDatum(log.created_at)}</TableCell>
+                              <TableCell className="font-mono text-sm">{formatDatumTijd(log.created_at)}</TableCell>
                               <TableCell>
                                 {log.case_id && (
                                   <Button
@@ -756,10 +789,38 @@ export default function AdminPage() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          <TableHead>Gebruiker</TableHead>
-                          <TableHead>Domein</TableHead>
-                          <TableHead>Zaak</TableHead>
-                          <TableHead>Datum/Tijd</TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('user_email'); setActivitySortOrder(prev => activitySortField === 'user_email' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'user_email' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Gebruiker {activitySortField === 'user_email' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('user_domain'); setActivitySortOrder(prev => activitySortField === 'user_domain' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'user_domain' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Domein {activitySortField === 'user_domain' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('case_name'); setActivitySortOrder(prev => activitySortField === 'case_name' ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'case_name' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Zaak {activitySortField === 'case_name' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
+                          <TableHead>
+                            <button
+                              onClick={() => { setActivitySortField('created_at'); setActivitySortOrder(prev => activitySortField === 'created_at' ? (prev === 'asc' ? 'desc' : 'asc') : 'desc'); }}
+                              className={`flex items-center gap-1 hover:text-primary ${activitySortField === 'created_at' ? 'text-primary font-semibold' : ''}`}
+                            >
+                              Datum/Tijd {activitySortField === 'created_at' && (activitySortOrder === 'asc' ? '↑' : '↓')}
+                            </button>
+                          </TableHead>
                           <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -768,9 +829,22 @@ export default function AdminPage() {
                           .filter((log) => log.action_type === 'pdf_view')
                           .filter((log) => activityDomainFilter === 'all' || log.user_domain === activityDomainFilter)
                           .sort((a, b) => {
-                            const dateA = new Date(a.created_at).getTime();
-                            const dateB = new Date(b.created_at).getTime();
-                            return activitySortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                            let comparison = 0;
+                            switch (activitySortField) {
+                              case 'user_email':
+                                comparison = (a.user_email || '').localeCompare(b.user_email || '');
+                                break;
+                              case 'user_domain':
+                                comparison = (a.user_domain || '').localeCompare(b.user_domain || '');
+                                break;
+                              case 'case_name':
+                                comparison = (a.case_name || '').localeCompare(b.case_name || '');
+                                break;
+                              case 'created_at':
+                                comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                                break;
+                            }
+                            return activitySortOrder === 'asc' ? comparison : -comparison;
                           })
                           .slice(0, 50)
                           .map((log) => (
@@ -778,7 +852,7 @@ export default function AdminPage() {
                               <TableCell className="font-medium">{log.user_email}</TableCell>
                               <TableCell className="text-muted-foreground">{log.user_domain || '-'}</TableCell>
                               <TableCell>{log.case_name || '-'}</TableCell>
-                              <TableCell className="font-mono text-sm">{formatDatum(log.created_at)}</TableCell>
+                              <TableCell className="font-mono text-sm">{formatDatumTijd(log.created_at)}</TableCell>
                               <TableCell>
                                 {log.case_id && (
                                   <Button
