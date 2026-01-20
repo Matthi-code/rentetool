@@ -256,7 +256,9 @@ async def list_all_cases(admin_id: str = Depends(require_admin)):
 class AdminUsageLog(BaseModel):
     id: str
     user_email: str
+    user_domain: str | None
     action_type: str
+    case_id: str | None
     case_name: str | None
     created_at: datetime
 
@@ -268,17 +270,20 @@ async def list_usage_logs(admin_id: str = Depends(require_admin)):
 
     logs = db.table('usage_logs').select('*').order('created_at', desc=True).limit(500).execute()
 
-    # Get user emails
+    # Get user emails and domains
     user_ids = list(set(l['user_id'] for l in logs.data if l.get('user_id')))
-    users = db.table('user_profiles').select('id, email').in_('id', user_ids).execute() if user_ids else type('obj', (object,), {'data': []})()
-    users_map = {u['id']: u['email'] for u in users.data}
+    users = db.table('user_profiles').select('id, email, email_domain').in_('id', user_ids).execute() if user_ids else type('obj', (object,), {'data': []})()
+    users_map = {u['id']: {'email': u['email'], 'domain': u.get('email_domain')} for u in users.data}
 
     result = []
     for l in logs.data:
+        user_info = users_map.get(l.get('user_id'), {'email': 'onbekend', 'domain': None})
         result.append(AdminUsageLog(
             id=l['id'],
-            user_email=users_map.get(l.get('user_id'), 'onbekend'),
+            user_email=user_info['email'],
+            user_domain=user_info['domain'],
             action_type=l['action_type'],
+            case_id=l.get('case_id'),
             case_name=l.get('case_name'),
             created_at=l['created_at']
         ))

@@ -374,7 +374,9 @@ export async function getAdminCases(): Promise<AdminCase[]> {
 export interface AdminUsageLog {
   id: string;
   user_email: string;
+  user_domain: string | null;
   action_type: 'calculation' | 'pdf_view';
+  case_id: string | null;
   case_name: string | null;
   created_at: string;
 }

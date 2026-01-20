@@ -64,6 +64,10 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
 
+  // Activity tab state
+  const [activityDomainFilter, setActivityDomainFilter] = useState<string>('all');
+  const [activitySortOrder, setActivitySortOrder] = useState<'desc' | 'asc'>('desc');
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -650,6 +654,38 @@ export default function AdminPage() {
             </Card>
           ) : (
             <div className="space-y-6">
+              {/* Filters */}
+              <Card>
+                <CardContent className="py-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Filter op domein:</span>
+                      <Select value={activityDomainFilter} onValueChange={setActivityDomainFilter}>
+                        <SelectTrigger className="w-[200px] h-9">
+                          <SelectValue placeholder="Alle domeinen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Alle domeinen</SelectItem>
+                          {Array.from(new Set(usageLogs.map(l => l.user_domain).filter((d): d is string => d !== null))).sort().map(domain => (
+                            <SelectItem key={domain} value={domain}>{domain}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Sortering:</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setActivitySortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                      >
+                        {activitySortOrder === 'desc' ? 'Nieuwste eerst ↓' : 'Oudste eerst ↑'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Recent Calculations */}
               <Card>
                 <CardHeader>
@@ -661,24 +697,45 @@ export default function AdminPage() {
                       <TableHeader>
                         <TableRow className="bg-muted/50">
                           <TableHead>Gebruiker</TableHead>
+                          <TableHead>Domein</TableHead>
                           <TableHead>Zaak</TableHead>
                           <TableHead>Datum/Tijd</TableHead>
+                          <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {usageLogs
                           .filter((log) => log.action_type === 'calculation')
-                          .slice(0, 20)
+                          .filter((log) => activityDomainFilter === 'all' || log.user_domain === activityDomainFilter)
+                          .sort((a, b) => {
+                            const dateA = new Date(a.created_at).getTime();
+                            const dateB = new Date(b.created_at).getTime();
+                            return activitySortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                          })
+                          .slice(0, 50)
                           .map((log) => (
                             <TableRow key={log.id}>
                               <TableCell className="font-medium">{log.user_email}</TableCell>
+                              <TableCell className="text-muted-foreground">{log.user_domain || '-'}</TableCell>
                               <TableCell>{log.case_name || '-'}</TableCell>
-                              <TableCell>{formatDatum(log.created_at)}</TableCell>
+                              <TableCell className="font-mono text-sm">{formatDatum(log.created_at)}</TableCell>
+                              <TableCell>
+                                {log.case_id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => router.push(`/case/${log.case_id}`)}
+                                    className="h-8"
+                                  >
+                                    Openen →
+                                  </Button>
+                                )}
+                              </TableCell>
                             </TableRow>
                           ))}
-                        {usageLogs.filter((log) => log.action_type === 'calculation').length === 0 && (
+                        {usageLogs.filter((log) => log.action_type === 'calculation').filter((log) => activityDomainFilter === 'all' || log.user_domain === activityDomainFilter).length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                               Geen berekeningen gevonden
                             </TableCell>
                           </TableRow>
@@ -700,24 +757,45 @@ export default function AdminPage() {
                       <TableHeader>
                         <TableRow className="bg-muted/50">
                           <TableHead>Gebruiker</TableHead>
+                          <TableHead>Domein</TableHead>
                           <TableHead>Zaak</TableHead>
                           <TableHead>Datum/Tijd</TableHead>
+                          <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {usageLogs
                           .filter((log) => log.action_type === 'pdf_view')
-                          .slice(0, 20)
+                          .filter((log) => activityDomainFilter === 'all' || log.user_domain === activityDomainFilter)
+                          .sort((a, b) => {
+                            const dateA = new Date(a.created_at).getTime();
+                            const dateB = new Date(b.created_at).getTime();
+                            return activitySortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                          })
+                          .slice(0, 50)
                           .map((log) => (
                             <TableRow key={log.id}>
                               <TableCell className="font-medium">{log.user_email}</TableCell>
+                              <TableCell className="text-muted-foreground">{log.user_domain || '-'}</TableCell>
                               <TableCell>{log.case_name || '-'}</TableCell>
-                              <TableCell>{formatDatum(log.created_at)}</TableCell>
+                              <TableCell className="font-mono text-sm">{formatDatum(log.created_at)}</TableCell>
+                              <TableCell>
+                                {log.case_id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => router.push(`/case/${log.case_id}`)}
+                                    className="h-8"
+                                  >
+                                    Openen →
+                                  </Button>
+                                )}
+                              </TableCell>
                             </TableRow>
                           ))}
-                        {usageLogs.filter((log) => log.action_type === 'pdf_view').length === 0 && (
+                        {usageLogs.filter((log) => log.action_type === 'pdf_view').filter((log) => activityDomainFilter === 'all' || log.user_domain === activityDomainFilter).length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                               Geen PDF views gevonden
                             </TableCell>
                           </TableRow>
