@@ -114,6 +114,9 @@ export default function CaseDetailPage() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
+  // Sort state for vorderingen (default: oldest first)
+  const [vorderingenSortOrder, setVorderingenSortOrder] = useState<'asc' | 'desc'>('asc');
+
   // Computed: Can the user edit this case?
   const isOwner = caseData?.sharing?.is_owner !== false;
   const canEdit = isOwner || caseData?.sharing?.my_permission === 'edit';
@@ -655,14 +658,29 @@ export default function CaseDetailPage() {
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-semibold">Kenmerk</TableHead>
                     <TableHead className="text-right font-semibold">Bedrag</TableHead>
-                    <TableHead className="font-semibold">Startdatum</TableHead>
+                    <TableHead className="font-semibold">
+                      <button
+                        onClick={() => setVorderingenSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                        className="flex items-center gap-1 hover:text-primary transition-colors"
+                        title={vorderingenSortOrder === 'asc' ? 'Oudste eerst (klik voor nieuwste eerst)' : 'Nieuwste eerst (klik voor oudste eerst)'}
+                      >
+                        Startdatum
+                        <span className="text-xs">{vorderingenSortOrder === 'asc' ? '↑' : '↓'}</span>
+                      </button>
+                    </TableHead>
                     <TableHead className="font-semibold">Rentetype</TableHead>
                     <TableHead className="text-right font-semibold">Kosten</TableHead>
                     {canEdit && <TableHead className="w-[100px] text-center font-semibold">Acties</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {caseData.vorderingen.map((v) => (
+                  {[...caseData.vorderingen]
+                    .sort((a, b) => {
+                      const dateA = new Date(a.datum).getTime();
+                      const dateB = new Date(b.datum).getTime();
+                      return vorderingenSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+                    })
+                    .map((v) => (
                     <TableRow key={v.id} className="group hover:bg-muted/30">
                       <TableCell className="font-medium">{v.kenmerk}</TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(v.bedrag)}</TableCell>
