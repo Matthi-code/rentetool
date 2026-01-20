@@ -148,10 +148,15 @@ class Vordering:
 
     def get_rente_pct(self, datum: date) -> Decimal:
         """Haal rentepercentage op voor deze vordering op een datum."""
-        if self.rentetype in (6, 7):
+        if self.rentetype == 5:
+            # Contractueel vast percentage - gebruik opslag als het vaste percentage
+            return self.opslag
+        elif self.rentetype in (6, 7):
+            # Wettelijke/handelsrente + opslag
             opslag = self.opslag if datum >= self.opslag_ingangsdatum else Decimal("0")
             return get_rente_percentage(datum, self.is_handelsrente, opslag)
         else:
+            # Standaard wettelijke of handelsrente
             return get_rente_percentage(datum, self.is_handelsrente)
 
 
