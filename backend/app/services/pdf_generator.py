@@ -251,7 +251,15 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     # Overzicht per vordering tabel
     story.append(Paragraph("OVERZICHT PER VORDERING", styles['SectionTitle']))
     story.append(Spacer(1, 0.2*cm))
-    story.append(_build_vordering_summary_table(vorderingen_result, totalen, styles))
+
+    # Sort vorderingen by startdatum (oldest first)
+    vord_input_lookup = {v.get("kenmerk"): v for v in vorderingen_input}
+    sorted_vorderingen = sorted(
+        vorderingen_result,
+        key=lambda v: vord_input_lookup.get(v.get("kenmerk"), {}).get("datum", "9999-12-31")
+    )
+
+    story.append(_build_vordering_summary_table(sorted_vorderingen, totalen, vord_input_lookup, styles))
     story.append(Spacer(1, 0.5*cm))
 
     # ===== SECTIE 3: SPECIFICATIE PER VORDERING =====
@@ -259,10 +267,8 @@ def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_cre
     story.append(Paragraph("SPECIFICATIE PER VORDERING", styles['SectionTitle']))
     story.append(Spacer(1, 0.3*cm))
 
-    # Create lookup dict for vordering input data (for rentetype)
-    vord_input_lookup = {v.get("kenmerk"): v for v in vorderingen_input}
-
-    for v in vorderingen_result:
+    # Use same sorted order for specifications
+    for v in sorted_vorderingen:
         vord_input = vord_input_lookup.get(v.get("kenmerk"), {})
         story.extend(_build_vordering_specification(v, vord_input, deelbetalingen_result, styles))
 
@@ -403,7 +409,10 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
     header = ["Kenmerk", "Bedrag", "Datum", "Type", "Kosten"]
     data = [header]
 
-    for v in vorderingen:
+    # Sort vorderingen by datum (oldest first)
+    sorted_vorderingen = sorted(vorderingen, key=lambda v: v.get("datum", "9999-12-31"))
+
+    for v in sorted_vorderingen:
         rentetype = RENTETYPE_SHORT.get(v.get("rentetype", 1), "?")
         opslag = v.get("opslag")
         if opslag:
@@ -516,23 +525,27 @@ def _build_afgelost_block(totalen: Dict, styles) -> Table:
     return table
 
 
-def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, styles) -> Table:
+def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, vord_input_lookup: Dict, styles) -> Table:
     """Build vordering summary table exactly like webapp with monospace numbers."""
     mono_style = ParagraphStyle('Mono', fontName='Courier', fontSize=7, alignment=TA_RIGHT)
+    mono_date = ParagraphStyle('MonoDate', fontName='Courier', fontSize=7, alignment=TA_LEFT)
     mono_green = ParagraphStyle('MonoGreen', fontName='Courier', fontSize=7, alignment=TA_RIGHT, textColor=SUCCESS_COLOR)
     mono_bold = ParagraphStyle('MonoBold', fontName='Courier-Bold', fontSize=7, alignment=TA_RIGHT)
     mono_primary = ParagraphStyle('MonoPrimary', fontName='Courier-Bold', fontSize=7, alignment=TA_RIGHT, textColor=PRIMARY_COLOR)
 
-    header = ["Vordering", "Hoofdsom", "Kosten", "Rente", "Afg. HS", "Afg. Kst", "Afg. Rnt", "Openstaand"]
+    header = ["Vordering", "Startdatum", "Hoofdsom", "Kosten", "Rente", "Afg. HS", "Afg. Kst", "Afg. Rnt", "Openstaand"]
     data = [header]
 
     for v in vorderingen:
         status = v.get("status", "OPEN")
         kenmerk = v.get("kenmerk", "")
         openstaand = format_bedrag(v.get("openstaand", 0)) if status != "VOLDAAN" else "€ 0,00"
+        vord_input = vord_input_lookup.get(kenmerk, {})
+        startdatum = format_datum(vord_input.get("datum", ""))
 
         data.append([
             kenmerk,
+            Paragraph(startdatum, mono_date),
             Paragraph(format_bedrag(v.get("oorspronkelijk_bedrag", 0)), mono_style),
             Paragraph(format_bedrag(v.get("kosten", 0)), mono_style),
             Paragraph(format_bedrag(v.get("totale_rente", 0)), mono_style),
@@ -545,6 +558,7 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
     # Totaal row
     data.append([
         "Totaal",
+        "",  # No startdatum for totaal row
         Paragraph(format_bedrag(totalen.get("oorspronkelijk", 0)), mono_bold),
         Paragraph(format_bedrag(totalen.get("kosten", 0)), mono_bold),
         Paragraph(format_bedrag(totalen.get("rente", 0)), mono_bold),
@@ -554,8 +568,8 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, style
         Paragraph(format_bedrag(totalen.get("openstaand", 0)), mono_primary),
     ])
 
-    # Full width: 18cm
-    col_widths = [3.2*cm, 2.3*cm, 1.8*cm, 2.5*cm, 2*cm, 2*cm, 2*cm, 2.2*cm]
+    # Full width: 18cm - adjusted for new column
+    col_widths = [2.5*cm, 2*cm, 2*cm, 1.6*cm, 2.2*cm, 1.9*cm, 1.9*cm, 1.9*cm, 2*cm]
     table = Table(data, colWidths=col_widths)
 
     style = TableStyle([
@@ -602,6 +616,7 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
     status = v.get("status", "OPEN")
     openstaand = format_bedrag(v.get("openstaand", 0))
     voldaan_datum = v.get("voldaan_datum")
+    startdatum = format_datum(vord_input.get("datum", ""))
 
     # Rentetype badge
     rentetype = vord_input.get("rentetype", 1)
@@ -609,6 +624,9 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
     opslag = vord_input.get("opslag")
     opslag_str = format_opslag(opslag) if opslag else ""
     rentetype_badge = f'<font size="7" color="#64748b">[{rentetype_label}{" " + opslag_str if opslag_str else ""}]</font>'
+
+    # Startdatum badge
+    startdatum_badge = f'<font size="7" color="#64748b">Startdatum: <font face="Courier">{startdatum}</font></font>'
 
     # Status badge
     if status == "VOLDAAN":
@@ -618,8 +636,8 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
     else:
         status_badge = f'<font color="#1e3a5f">[OPEN]</font>'
 
-    # Header line with rentetype
-    header_text = f'<b>{kenmerk}</b> {rentetype_badge} {status_badge}  <font size="8">Openstaand: <font face="Courier"><b>{openstaand}</b></font></font>'
+    # Header line with rentetype and startdatum
+    header_text = f'<b>{kenmerk}</b> {rentetype_badge} {startdatum_badge} {status_badge}  <font size="8">Openstaand: <font face="Courier"><b>{openstaand}</b></font></font>'
     elements.append(Paragraph(header_text, styles['VorderingHeader']))
 
     # Build periods table with payment rows
