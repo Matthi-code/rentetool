@@ -886,6 +886,7 @@ export default function CaseDetailPage() {
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">Vordering</TableHead>
+                      <TableHead className="font-semibold">Startdatum</TableHead>
                       <TableHead className="text-right font-semibold">Hoofdsom</TableHead>
                       <TableHead className="text-right font-semibold">Kosten</TableHead>
                       <TableHead className="text-right font-semibold">Rente</TableHead>
@@ -896,7 +897,17 @@ export default function CaseDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {result.vorderingen.map((v) => (
+                    {[...result.vorderingen]
+                      .sort((a, b) => {
+                        const vordA = caseData.vorderingen.find(v => v.kenmerk === a.kenmerk);
+                        const vordB = caseData.vorderingen.find(v => v.kenmerk === b.kenmerk);
+                        const dateA = vordA ? new Date(vordA.datum).getTime() : 0;
+                        const dateB = vordB ? new Date(vordB.datum).getTime() : 0;
+                        return dateA - dateB;
+                      })
+                      .map((v) => {
+                        const vordInfo = caseData.vorderingen.find(vd => vd.kenmerk === v.kenmerk);
+                        return (
                       <TableRow key={v.kenmerk} className={v.status === 'VOLDAAN' ? 'bg-green-50' : ''}>
                         <TableCell className="font-medium">
                           {v.kenmerk}
@@ -906,6 +917,7 @@ export default function CaseDetailPage() {
                             </Badge>
                           )}
                         </TableCell>
+                        <TableCell className="font-mono">{vordInfo ? formatDatum(vordInfo.datum) : '-'}</TableCell>
                         <TableCell className="text-right font-mono">{formatBedrag(v.oorspronkelijk_bedrag)}</TableCell>
                         <TableCell className="text-right font-mono">{formatBedrag(v.kosten)}</TableCell>
                         <TableCell className="text-right font-mono">{formatBedrag(v.totale_rente)}</TableCell>
@@ -920,10 +932,12 @@ export default function CaseDetailPage() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                        );
+                      })}
                     {/* Totaal rij */}
                     <TableRow className="bg-muted/70 font-semibold border-t-2">
                       <TableCell>Totaal</TableCell>
+                      <TableCell></TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(result.totalen.oorspronkelijk)}</TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(result.totalen.kosten)}</TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(result.totalen.rente)}</TableCell>
@@ -944,7 +958,15 @@ export default function CaseDetailPage() {
               </h3>
             </div>
             <Accordion type="multiple" className="w-full border rounded-lg">
-              {result.vorderingen.map((v, vIndex) => (
+              {[...result.vorderingen]
+                .sort((a, b) => {
+                  const vordA = caseData.vorderingen.find(v => v.kenmerk === a.kenmerk);
+                  const vordB = caseData.vorderingen.find(v => v.kenmerk === b.kenmerk);
+                  const dateA = vordA ? new Date(vordA.datum).getTime() : 0;
+                  const dateB = vordB ? new Date(vordB.datum).getTime() : 0;
+                  return dateA - dateB;
+                })
+                .map((v, vIndex) => (
                 <AccordionItem key={v.kenmerk} value={v.kenmerk} className={vIndex === 0 ? '' : 'border-t'}>
                   <AccordionTrigger className="hover:no-underline hover:bg-muted/30 px-4">
                     <div className="flex items-center gap-3 w-full">
@@ -953,11 +975,14 @@ export default function CaseDetailPage() {
                         const vordInfo = caseData.vorderingen.find(vd => vd.kenmerk === v.kenmerk);
                         if (vordInfo) {
                           return (
-                            <Badge variant="outline" className="text-xs bg-muted/50">
-                              {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
-                              {vordInfo.opslag && vordInfo.rentetype === 5 ? ` ${(vordInfo.opslag * 100).toFixed(1)}%` : null}
-                              {vordInfo.opslag && (vordInfo.rentetype === 6 || vordInfo.rentetype === 7) ? ` +${(vordInfo.opslag * 100).toFixed(1)}%` : null}
-                            </Badge>
+                            <>
+                              <span className="text-xs text-muted-foreground font-mono">{formatDatum(vordInfo.datum)}</span>
+                              <Badge variant="outline" className="text-xs bg-muted/50">
+                                {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
+                                {vordInfo.opslag && vordInfo.rentetype === 5 ? ` ${(vordInfo.opslag * 100).toFixed(1)}%` : null}
+                                {vordInfo.opslag && (vordInfo.rentetype === 6 || vordInfo.rentetype === 7) ? ` +${(vordInfo.opslag * 100).toFixed(1)}%` : null}
+                              </Badge>
+                            </>
                           );
                         }
                         return null;
