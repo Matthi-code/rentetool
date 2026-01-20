@@ -38,6 +38,11 @@ export default function ViewAsUserPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Sorting state
+  type SortField = 'naam' | 'updated_at' | 'einddatum' | 'vorderingen_count';
+  const [sortField, setSortField] = useState<SortField>('updated_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -74,6 +79,50 @@ export default function ViewAsUserPage() {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('org_admin')) return 'org_admin';
     return 'user';
+  }
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  }
+
+  function getSortedCases() {
+    if (!userData) return [];
+    return [...userData.cases].sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case 'naam':
+          comparison = a.naam.localeCompare(b.naam);
+          break;
+        case 'updated_at':
+          comparison = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime();
+          break;
+        case 'einddatum':
+          comparison = new Date(a.einddatum).getTime() - new Date(b.einddatum).getTime();
+          break;
+        case 'vorderingen_count':
+          comparison = a.vorderingen_count - b.vorderingen_count;
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }
+
+  function SortHeader({ field, children }: { field: SortField; children: React.ReactNode }) {
+    const isActive = sortField === field;
+    return (
+      <button
+        onClick={() => toggleSort(field)}
+        className={`flex items-center gap-1 hover:text-primary transition-colors ${isActive ? 'text-primary font-semibold' : ''}`}
+      >
+        {children}
+        {isActive && <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>}
+      </button>
+    );
   }
 
   if (authLoading || loading) {
@@ -220,18 +269,26 @@ export default function ViewAsUserPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead>Naam</TableHead>
+                    <TableHead>
+                      <SortHeader field="naam">Naam</SortHeader>
+                    </TableHead>
                     <TableHead>Referentie</TableHead>
                     <TableHead>Strategie</TableHead>
-                    <TableHead className="text-center">Vorderingen</TableHead>
-                    <TableHead className="text-center">Betalingen</TableHead>
-                    <TableHead>Einddatum</TableHead>
-                    <TableHead>Laatst gewijzigd</TableHead>
+                    <TableHead className="text-center">
+                      <SortHeader field="vorderingen_count">Vord.</SortHeader>
+                    </TableHead>
+                    <TableHead className="text-center">Bet.</TableHead>
+                    <TableHead>
+                      <SortHeader field="einddatum">Einddatum</SortHeader>
+                    </TableHead>
+                    <TableHead>
+                      <SortHeader field="updated_at">Laatst gewijzigd</SortHeader>
+                    </TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cases.map((c) => (
+                  {getSortedCases().map((c) => (
                     <TableRow key={c.id} className="hover:bg-muted/30">
                       <TableCell className="font-medium">{c.naam}</TableCell>
                       <TableCell className="text-muted-foreground">{c.klant_referentie || '-'}</TableCell>
@@ -240,10 +297,10 @@ export default function ViewAsUserPage() {
                           {c.strategie}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center">{c.vorderingen_count}</TableCell>
-                      <TableCell className="text-center">{c.deelbetalingen_count}</TableCell>
-                      <TableCell>{formatDatum(c.einddatum)}</TableCell>
-                      <TableCell>{formatDatum(c.updated_at)}</TableCell>
+                      <TableCell className="text-center font-mono">{c.vorderingen_count}</TableCell>
+                      <TableCell className="text-center font-mono">{c.deelbetalingen_count}</TableCell>
+                      <TableCell className="font-mono">{formatDatum(c.einddatum)}</TableCell>
+                      <TableCell className="font-mono">{formatDatum(c.updated_at)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -251,7 +308,7 @@ export default function ViewAsUserPage() {
                           onClick={() => router.push(`/case/${c.id}`)}
                           className="h-8"
                         >
-                          Openen &#x2192;
+                          Openen →
                         </Button>
                       </TableCell>
                     </TableRow>
