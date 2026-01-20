@@ -21,7 +21,6 @@ import {
 } from '@/lib/api';
 import { formatDatum } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
-import { STRATEGIE_LABELS } from '@/lib/types';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -47,6 +46,7 @@ export default function ViewAsUserPage() {
     if (user && userId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, userId, router]);
 
   async function loadData() {

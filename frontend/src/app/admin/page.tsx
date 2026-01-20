@@ -29,7 +29,6 @@ import {
   type AdminCheckResponse,
   type UserRole,
   type DomainOverview,
-  type DomainStats,
 } from '@/lib/api';
 import { formatDatum } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
