@@ -408,7 +408,7 @@ export default function AdminPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{isExpanded ? '&#x25BC;' : '&#x25B6;'}</span>
+                        <span className="text-lg">{isExpanded ? '▼' : '▶'}</span>
                         <span className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm font-medium">
                           {domain}
                         </span>
