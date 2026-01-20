@@ -44,6 +44,14 @@ export function Header() {
             <>
               {user ? (
                 <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push('/help')}
+                    className="text-primary-foreground hover:bg-white/10"
+                  >
+                    <span className="mr-1">?</span> Help
+                  </Button>
                   {hasAdminAccess && (
                     <Button
                       variant="ghost"

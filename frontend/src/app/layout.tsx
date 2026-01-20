@@ -48,7 +48,10 @@ export default function RootLayout({
                 <p className="text-xs">
                   <strong>Disclaimer:</strong> De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten.
                 </p>
-                <p className="text-xs">Rentetool v0.2 - Wettelijke rente conform art. 6:119/119a BW</p>
+                <p className="text-xs">
+                  Rentetool v0.2 - Wettelijke rente conform art. 6:119/119a BW |{' '}
+                  <a href="/help" className="underline hover:text-foreground">Help & Uitleg</a>
+                </p>
               </div>
             </footer>
           </div>
