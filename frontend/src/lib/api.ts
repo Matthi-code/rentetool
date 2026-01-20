@@ -325,6 +325,7 @@ export interface UserStats {
   display_name: string | null;
   email_domain: string;
   created_at: string;
+  roles: string[];
   cases_count: number;
   shared_with_count: number;
   calculations_count: number;
@@ -332,12 +333,18 @@ export interface UserStats {
   last_activity: string | null;
 }
 
-export async function checkAdmin(): Promise<boolean> {
+export interface AdminCheckResponse {
+  is_admin: boolean;
+  is_org_admin: boolean;
+  roles: string[];
+  domain: string | null;
+}
+
+export async function checkAdmin(): Promise<AdminCheckResponse> {
   try {
-    await fetchApi('/api/admin/check');
-    return true;
+    return await fetchApi<AdminCheckResponse>('/api/admin/check');
   } catch {
-    return false;
+    return { is_admin: false, is_org_admin: false, roles: [], domain: null };
   }
 }
 
@@ -374,4 +381,97 @@ export interface AdminUsageLog {
 
 export async function getAdminUsageLogs(): Promise<AdminUsageLog[]> {
   return fetchApi<AdminUsageLog[]>('/api/admin/usage-logs');
+}
+
+// Role Management API
+
+export type UserRole = 'admin' | 'org_admin' | 'user';
+
+export async function getUserRoles(userId: string): Promise<string[]> {
+  return fetchApi<string[]>(`/api/admin/users/${userId}/roles`);
+}
+
+export async function assignRole(userId: string, role: UserRole): Promise<{ message: string; success: boolean }> {
+  return fetchApi(`/api/admin/users/${userId}/roles`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, role }),
+  });
+}
+
+export async function removeRole(userId: string, role: string): Promise<{ message: string; success: boolean }> {
+  return fetchApi(`/api/admin/users/${userId}/roles/${role}`, {
+    method: 'DELETE',
+  });
+}
+
+// Case Transfer API
+
+export async function transferCase(caseId: string): Promise<{ message: string; success: boolean; previous_owner_id?: string }> {
+  return fetchApi(`/api/admin/cases/${caseId}/transfer`, {
+    method: 'POST',
+  });
+}
+
+// Domain Statistics API
+
+export interface DomainStats {
+  domain: string;
+  is_consumer: boolean;
+  users_count: number;
+  cases_count: number;
+  calculations_count: number;
+  pdf_views_count: number;
+  has_org_admin: boolean;
+}
+
+export interface DomainOverview {
+  total_domains: number;
+  organization_domains: number;
+  consumer_domains: number;
+  domains: DomainStats[];
+}
+
+export async function getDomainStats(): Promise<DomainOverview> {
+  return fetchApi<DomainOverview>('/api/admin/domains');
+}
+
+export async function getConsumerDomains(): Promise<{ domains: string[] }> {
+  return fetchApi<{ domains: string[] }>('/api/admin/consumer-domains');
+}
+
+// View as User API (Admin only)
+
+export interface ViewAsUserProfile {
+  id: string;
+  email: string;
+  display_name: string | null;
+  email_domain: string;
+  created_at: string;
+  roles: string[];
+}
+
+export interface ViewAsUserCase {
+  id: string;
+  naam: string;
+  klant_referentie: string | null;
+  einddatum: string;
+  strategie: string;
+  vorderingen_count: number;
+  deelbetalingen_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ViewAsUserResponse {
+  user: ViewAsUserProfile;
+  cases: ViewAsUserCase[];
+  stats: {
+    calculations_count: number;
+    pdf_views_count: number;
+    cases_count: number;
+  };
+}
+
+export async function viewAsUser(userId: string): Promise<ViewAsUserResponse> {
+  return fetchApi<ViewAsUserResponse>(`/api/admin/view-as-user/${userId}`);
 }

@@ -1,18 +1,26 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-
-// Admin whitelist - must match backend
-const ADMIN_EMAILS = ['matthi+rente@gcon.nl'];
+import { checkAdmin, type AdminCheckResponse } from '@/lib/api';
 
 export function Header() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
+  const [adminStatus, setAdminStatus] = useState<AdminCheckResponse | null>(null);
 
-  const isAdmin = user?.email && ADMIN_EMAILS.includes(user.email);
+  useEffect(() => {
+    if (user && !loading) {
+      checkAdmin().then(setAdminStatus).catch(() => setAdminStatus(null));
+    } else {
+      setAdminStatus(null);
+    }
+  }, [user, loading]);
+
+  const hasAdminAccess = adminStatus?.is_admin || adminStatus?.is_org_admin;
 
   const handleSignOut = async () => {
     await signOut();
@@ -36,7 +44,7 @@ export function Header() {
             <>
               {user ? (
                 <>
-                  {isAdmin && (
+                  {hasAdminAccess && (
                     <Button
                       variant="ghost"
                       size="sm"

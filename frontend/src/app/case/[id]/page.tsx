@@ -670,7 +670,8 @@ export default function CaseDetailPage() {
                       <TableCell>
                         <Badge variant="outline" className="font-normal" title={RENTETYPE_LABELS[v.rentetype]}>
                           {RENTETYPE_SHORT[v.rentetype]}
-                          {v.opslag && ` +${(v.opslag * 100).toFixed(0)}%`}
+                          {v.rentetype === 5 && v.opslag ? ` ${(v.opslag * 100).toFixed(1)}%` : null}
+                          {(v.rentetype === 6 || v.rentetype === 7) && v.opslag ? ` +${(v.opslag * 100).toFixed(1)}%` : null}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(v.kosten)}</TableCell>
@@ -936,7 +937,8 @@ export default function CaseDetailPage() {
                           return (
                             <Badge variant="outline" className="text-xs bg-muted/50">
                               {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
-                              {vordInfo.opslag ? ` +${vordInfo.opslag > 1 ? vordInfo.opslag : vordInfo.opslag * 100}%` : ''}
+                              {vordInfo.opslag && vordInfo.rentetype === 5 ? ` ${(vordInfo.opslag * 100).toFixed(1)}%` : null}
+                              {vordInfo.opslag && (vordInfo.rentetype === 6 || vordInfo.rentetype === 7) ? ` +${(vordInfo.opslag * 100).toFixed(1)}%` : null}
                             </Badge>
                           );
                         }
@@ -1122,6 +1124,19 @@ export default function CaseDetailPage() {
                 placeholder="0.00"
               />
             </div>
+            {vorderingForm.rentetype === 5 && (
+              <div>
+                <label className="text-sm font-medium">Rentepercentage % *</label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={vorderingForm.opslag}
+                  onChange={(e) => setVorderingForm({ ...vorderingForm, opslag: e.target.value })}
+                  placeholder="Bijv. 8.5"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Het vaste jaarlijkse rentepercentage</p>
+              </div>
+            )}
             {(vorderingForm.rentetype === 6 || vorderingForm.rentetype === 7) && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1151,7 +1166,12 @@ export default function CaseDetailPage() {
             </Button>
             <Button
               onClick={handleSaveVordering}
-              disabled={!vorderingForm.kenmerk || !vorderingForm.bedrag || !vorderingForm.datum}
+              disabled={
+                !vorderingForm.kenmerk ||
+                !vorderingForm.bedrag ||
+                !vorderingForm.datum ||
+                (vorderingForm.rentetype === 5 && !vorderingForm.opslag)
+              }
             >
               {editingVordering ? 'Opslaan' : 'Toevoegen'}
             </Button>
