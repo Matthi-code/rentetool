@@ -22,6 +22,15 @@ def get_db():
     return get_supabase_client()
 
 
+def is_admin(db, user_id: str) -> bool:
+    """Check if user has admin role."""
+    try:
+        roles = db.table('user_roles').select('role').eq('user_id', user_id).execute()
+        return any(r['role'] == 'admin' for r in roles.data) if roles.data else False
+    except:
+        return False
+
+
 def can_edit_case(db, case_id: str, user_id: str) -> bool:
     """Check if user can edit a case (owner or has edit permission)."""
     # Check ownership
@@ -203,12 +212,30 @@ async def get_case(case_id: str, user_id: str = Depends(get_current_user)):
 
     case = case_response.data[0]
     is_owner = case['user_id'] == user_id
+    user_is_admin = is_admin(db, user_id)
 
-    # If not owner, check if shared with user
+    # If not owner, check if shared with user or if user is admin
     sharing_info = None
     sharing_tables_exist = _sharing_tables_exist(db)
 
-    if is_owner:
+    if user_is_admin and not is_owner:
+        # Admin viewing someone else's case - read-only access
+        owner_id = case['user_id']
+        owner_info = None
+        try:
+            owner_response = db.table('user_profiles').select('id, email, display_name').eq('id', owner_id).execute()
+            if owner_response.data:
+                owner_info = owner_response.data[0]
+        except:
+            pass
+
+        sharing_info = CaseShareInfo(
+            is_shared=True,
+            is_owner=False,
+            shared_by=ColleagueResponse(**owner_info) if owner_info else None,
+            my_permission='view'  # Admin gets read-only view by default
+        )
+    elif is_owner:
         # Owner always has access
         sharing_info = CaseShareInfo(
             is_shared=False,
