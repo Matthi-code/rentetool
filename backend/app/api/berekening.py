@@ -145,8 +145,9 @@ async def bereken_rente(request: BerekeningRequest):
         )
 
         # Control calculation
-        totaal_betaald = sum(d.bedrag for d in result['deelbetalingen'])
-        controle = totaal_oorspronkelijk + totaal_kosten + totaal_rente - totaal_betaald
+        # Use actual amounts applied (not just payment amounts, which may exceed debt)
+        totaal_afgelost = totaal_afl_hs + totaal_afl_kst + totaal_afl_rnt
+        controle = totaal_oorspronkelijk + totaal_kosten + totaal_rente - totaal_afgelost
         controle_ok = abs(controle - totaal_openstaand) < Decimal("0.02")
 
         return BerekeningResponse(

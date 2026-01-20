@@ -684,7 +684,7 @@ export default function CaseDetailPage() {
                     <TableRow key={v.id} className="group hover:bg-muted/30">
                       <TableCell className="font-medium">{v.kenmerk}</TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(v.bedrag)}</TableCell>
-                      <TableCell>{formatDatum(v.datum)}</TableCell>
+                      <TableCell className="font-mono">{formatDatum(v.datum)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-normal" title={RENTETYPE_LABELS[v.rentetype]}>
                           {RENTETYPE_SHORT[v.rentetype]}
@@ -771,7 +771,7 @@ export default function CaseDetailPage() {
                     <TableRow key={d.id} className="group hover:bg-muted/30">
                       <TableCell className="font-medium">{d.kenmerk || '-'}</TableCell>
                       <TableCell className="text-right font-mono">{formatBedrag(d.bedrag)}</TableCell>
-                      <TableCell>{formatDatum(d.datum)}</TableCell>
+                      <TableCell className="font-mono">{formatDatum(d.datum)}</TableCell>
                       <TableCell>
                         {d.aangewezen.length > 0 ? (
                           <span className="text-sm">{d.aangewezen.join(', ')}</span>
