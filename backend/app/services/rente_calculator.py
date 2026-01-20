@@ -312,16 +312,33 @@ class RenteCalculator:
 
         # Bepaal volgorde van vorderingen
         if betaling.aangewezen_vorderingen:
+            # Eerst de aangewezen vorderingen verwerken
             vorderingen_volgorde = []
+            verwerkte_kenmerken = set()
             for kenmerk in betaling.aangewezen_vorderingen:
                 if kenmerk in self.vorderingen:
                     v = self.vorderingen[kenmerk]
                     if not v.voldaan and v.startdatum <= datum:
                         vorderingen_volgorde.append(v)
+                        verwerkte_kenmerken.add(kenmerk)
+
+            # Daarna overige actieve vorderingen voor eventueel restant (overflow)
+            # Sorteer op: (1) hoogste rente%, (2) oudste startdatum
+            overige = [v for v in self.get_actieve_vorderingen(datum)
+                      if v.kenmerk not in verwerkte_kenmerken]
+            overige_gesorteerd = sorted(
+                overige,
+                key=lambda v: (-v.get_rente_pct(datum), v.startdatum)
+            )
+            vorderingen_volgorde.extend(overige_gesorteerd)
         else:
-            # Strategie A: meest bezwarend
+            # Strategie A: meest bezwarend met tiebreaker op oudste startdatum
             actief = self.get_actieve_vorderingen(datum)
-            vorderingen_volgorde = sorted(actief, key=lambda v: v.get_rente_pct(datum), reverse=True)
+            # Sorteer op: (1) hoogste rente% (descending), (2) oudste startdatum (ascending)
+            vorderingen_volgorde = sorted(
+                actief,
+                key=lambda v: (-v.get_rente_pct(datum), v.startdatum)
+            )
 
         for vordering in vorderingen_volgorde:
             if restant <= 0:
