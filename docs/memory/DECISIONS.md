@@ -35,3 +35,14 @@
 - **Collega-detectie:** Zelfde email domein (bijv. @gcon.nl)
 - **Graceful degradation:** Backend werkt ook zonder sharing tabellen
 - **Reden:** Samenwerking binnen organisaties mogelijk maken
+
+## 2026-01-22
+
+### Toerekening Volgorde bij Betaling
+- **Beslissing:** rente kosten → kosten → rente hoofdsom → hoofdsom
+- **Reden:** Gebruiker preferentie; rente op kosten eerst aflossen voordat kosten zelf worden afgelost
+
+### Evenredige Verdeling bij Gelijke Vorderingen
+- **Beslissing:** Bij vorderingen met exact dezelfde rente% én startdatum wordt betaling evenredig verdeeld
+- **Implementatie:** `_verdeel_evenredig()` en `_verwerk_vordering_groep()` helpers in RenteCalculator
+- **Reden:** Eerlijke verdeling wanneer geen prioriteit kan worden bepaald
