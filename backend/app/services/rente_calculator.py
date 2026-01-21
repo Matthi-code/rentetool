@@ -103,36 +103,49 @@ class Vordering:
     oorspronkelijk_bedrag: Decimal
     startdatum: date
     rentetype: int  # 1-7
+    item_type: str = 'vordering'  # 'vordering' or 'kosten'
     kosten: Decimal = Decimal("0")
+    kosten_rentedatum: Optional[date] = None  # Aparte rentedatum voor kosten
     opslag: Decimal = Decimal("0")  # Voor type 6 en 7
     opslag_ingangsdatum: Optional[date] = None  # Default: startdatum
+    pauze_start: Optional[date] = None  # Start of interest pause
+    pauze_eind: Optional[date] = None  # End of interest pause
 
     # Huidige staat
     hoofdsom: Decimal = field(default=Decimal("0"))
     openstaande_kosten: Decimal = field(default=Decimal("0"))
-    opgebouwde_rente: Decimal = field(default=Decimal("0"))
-    totale_rente: Decimal = field(default=Decimal("0"))
+    opgebouwde_rente: Decimal = field(default=Decimal("0"))  # Rente op hoofdsom
+    opgebouwde_rente_kosten: Decimal = field(default=Decimal("0"))  # Rente op kosten
+    totale_rente: Decimal = field(default=Decimal("0"))  # Totale rente hoofdsom
+    totale_rente_kosten: Decimal = field(default=Decimal("0"))  # Totale rente kosten
     voldaan: bool = False
     voldaan_datum: Optional[date] = None
 
     # Aflossingen
     afgelost_hoofdsom: Decimal = field(default=Decimal("0"))
     afgelost_kosten: Decimal = field(default=Decimal("0"))
-    afgelost_rente: Decimal = field(default=Decimal("0"))
+    afgelost_rente: Decimal = field(default=Decimal("0"))  # Rente op hoofdsom
+    afgelost_rente_kosten: Decimal = field(default=Decimal("0"))  # Rente op kosten
 
     # Detail logging
     periodes: List[Dict] = field(default_factory=list)
+    periodes_kosten: List[Dict] = field(default_factory=list)  # Periodes voor kosten
     events: List[Dict] = field(default_factory=list)
 
     # Track laatste berekende datum
     laatst_berekend_tot: Optional[date] = None
+    laatst_berekend_tot_kosten: Optional[date] = None
 
     def __post_init__(self):
         self.hoofdsom = self.oorspronkelijk_bedrag
         self.openstaande_kosten = self.kosten
         if self.opslag_ingangsdatum is None:
             self.opslag_ingangsdatum = self.startdatum
+        # Kosten rentedatum default naar startdatum als niet opgegeven
+        if self.kosten_rentedatum is None:
+            self.kosten_rentedatum = self.startdatum
         self.laatst_berekend_tot = self.startdatum
+        self.laatst_berekend_tot_kosten = self.kosten_rentedatum
 
     @property
     def is_samengesteld(self) -> bool:
@@ -144,7 +157,13 @@ class Vordering:
 
     @property
     def openstaand(self) -> Decimal:
-        return self.hoofdsom + self.openstaande_kosten + self.opgebouwde_rente
+        return self.hoofdsom + self.openstaande_kosten + self.opgebouwde_rente + self.opgebouwde_rente_kosten
+
+    def is_in_pauze(self, datum: date) -> bool:
+        """Check if a date falls within the pause period."""
+        if self.pauze_start and self.pauze_eind:
+            return self.pauze_start <= datum < self.pauze_eind
+        return False
 
     def get_rente_pct(self, datum: date) -> Decimal:
         """Haal rentepercentage op voor deze vordering op een datum."""
@@ -219,6 +238,7 @@ class RenteCalculator:
         Bepaal alle splitpunten tussen twee data:
         - Rentewijzigingsdata
         - Verjaardagen (voor kapitalisatie)
+        - Pauze grenzen (start en eind)
         """
         splitpunten = set()
 
@@ -238,17 +258,99 @@ class RenteCalculator:
                 if vj > van_datum:
                     splitpunten.add(vj)
 
+        # Voeg pauze grenzen toe
+        if vordering.pauze_start and van_datum < vordering.pauze_start < tot_datum:
+            splitpunten.add(vordering.pauze_start)
+        if vordering.pauze_eind and van_datum < vordering.pauze_eind < tot_datum:
+            splitpunten.add(vordering.pauze_eind)
+
         return sorted(splitpunten)
+
+    def bereken_rente_kosten_tot_datum(self, vordering: Vordering, tot_datum: date):
+        """
+        Bereken rente over openstaande kosten tot een bepaalde datum.
+        Kosten hebben hun eigen rentedatum (kosten_rentedatum).
+        Respecteert pauze periodes (geen rente tijdens pauze).
+        """
+        if vordering.voldaan or vordering.openstaande_kosten <= 0:
+            return
+        if vordering.kosten_rentedatum >= tot_datum:
+            return
+
+        huidige_datum = vordering.laatst_berekend_tot_kosten
+        if huidige_datum >= tot_datum:
+            return
+
+        # Haal splitpunten op (alleen rentewijzigingen + pauze grenzen, geen kapitalisatie voor kosten)
+        splitpunten = []
+        for wijziging in RENTE_WIJZIGINGSDATA:
+            if huidige_datum < wijziging < tot_datum:
+                splitpunten.append(wijziging)
+        # Add pause boundaries
+        if vordering.pauze_start and huidige_datum < vordering.pauze_start < tot_datum:
+            splitpunten.append(vordering.pauze_start)
+        if vordering.pauze_eind and huidige_datum < vordering.pauze_eind < tot_datum:
+            splitpunten.append(vordering.pauze_eind)
+        splitpunten.append(tot_datum)
+        splitpunten = sorted(set(splitpunten))
+
+        for splitpunt in splitpunten:
+            if huidige_datum >= splitpunt:
+                continue
+
+            # Check if this period is in a pause
+            is_in_pauze = vordering.is_in_pauze(huidige_datum)
+
+            dagen = (splitpunt - huidige_datum).days
+            rente_pct = vordering.get_rente_pct(huidige_datum)
+
+            if is_in_pauze:
+                # No interest during pause
+                rente = Decimal("0")
+                vordering.periodes_kosten.append({
+                    'start': huidige_datum,
+                    'eind': splitpunt,
+                    'dagen': dagen,
+                    'kosten': vordering.openstaande_kosten,
+                    'rente_pct': Decimal("0"),
+                    'rente': Decimal("0"),
+                    'opgebouwd': vordering.opgebouwde_rente_kosten,
+                    'is_pauze': True
+                })
+            else:
+                rente = bereken_rente(vordering.openstaande_kosten, rente_pct, dagen)
+                vordering.opgebouwde_rente_kosten += rente
+                vordering.totale_rente_kosten += rente
+
+                vordering.periodes_kosten.append({
+                    'start': huidige_datum,
+                    'eind': splitpunt,
+                    'dagen': dagen,
+                    'kosten': vordering.openstaande_kosten,
+                    'rente_pct': rente_pct,
+                    'rente': rente,
+                    'opgebouwd': vordering.opgebouwde_rente_kosten,
+                    'is_pauze': False
+                })
+
+            huidige_datum = splitpunt
+
+        vordering.laatst_berekend_tot_kosten = tot_datum
 
     def bereken_rente_tot_datum(self, vordering: Vordering, tot_datum: date):
         """
         Bereken rente voor een vordering tot een bepaalde datum.
         Splitst periodes op rentewijzigingsdata.
+        Berekent ook rente op kosten apart.
+        Respecteert pauze periodes (geen rente tijdens pauze).
         """
         if vordering.voldaan or vordering.startdatum >= tot_datum:
             return
 
-        # Start vanaf laatste berekende datum
+        # Bereken rente op kosten apart
+        self.bereken_rente_kosten_tot_datum(vordering, tot_datum)
+
+        # Start vanaf laatste berekende datum voor hoofdsom
         huidige_datum = vordering.laatst_berekend_tot
 
         if huidige_datum >= tot_datum:
@@ -262,35 +364,76 @@ class RenteCalculator:
             if huidige_datum >= splitpunt:
                 continue
 
+            # Check if this period starts in a pause
+            is_in_pauze = vordering.is_in_pauze(huidige_datum)
+
+            # Check if this is the start of a pause (capitalize accrued interest)
+            is_pauze_start = (
+                vordering.pauze_start and
+                splitpunt == vordering.pauze_start and
+                vordering.is_samengesteld and
+                vordering.opgebouwde_rente > 0
+            )
+
             # Bepaal of dit een kapitalisatiemoment is (verjaardag)
             is_verjaardag = (
                 vordering.is_samengesteld and
                 splitpunt.month == vordering.startdatum.month and
                 splitpunt.day == vordering.startdatum.day and
-                splitpunt < tot_datum
+                splitpunt < tot_datum and
+                not is_in_pauze  # No kapitalisatie during pause
             )
 
-            # Bereken rente voor deze subperiode
+            # Calculate interest for this subperiod (only if not in pause)
             dagen = (splitpunt - huidige_datum).days
             rente_pct = vordering.get_rente_pct(huidige_datum)
-            rente = bereken_rente(vordering.hoofdsom, rente_pct, dagen)
 
-            vordering.opgebouwde_rente += rente
-            vordering.totale_rente += rente
+            if is_in_pauze:
+                # No interest during pause
+                rente = Decimal("0")
+                vordering.periodes.append({
+                    'start': huidige_datum,
+                    'eind': splitpunt,
+                    'dagen': dagen,
+                    'hoofdsom': vordering.hoofdsom,
+                    'rente_pct': Decimal("0"),
+                    'rente': Decimal("0"),
+                    'opgebouwd': vordering.opgebouwde_rente,
+                    'is_kapitalisatie': False,
+                    'is_pauze': True
+                })
+            else:
+                # Normal interest calculation
+                rente = bereken_rente(vordering.hoofdsom, rente_pct, dagen)
+                vordering.opgebouwde_rente += rente
+                vordering.totale_rente += rente
 
-            vordering.periodes.append({
-                'start': huidige_datum,
-                'eind': splitpunt,
-                'dagen': dagen,
-                'hoofdsom': vordering.hoofdsom,
-                'rente_pct': rente_pct,
-                'rente': rente,
-                'opgebouwd': vordering.opgebouwde_rente,
-                'is_kapitalisatie': is_verjaardag
-            })
+                vordering.periodes.append({
+                    'start': huidige_datum,
+                    'eind': splitpunt,
+                    'dagen': dagen,
+                    'hoofdsom': vordering.hoofdsom,
+                    'rente_pct': rente_pct,
+                    'rente': rente,
+                    'opgebouwd': vordering.opgebouwde_rente,
+                    'is_kapitalisatie': is_verjaardag,
+                    'is_pauze': False
+                })
+
+            # Kapitalisatie at pause start (before entering pause)
+            if is_pauze_start and not is_in_pauze:
+                vordering.events.append({
+                    'type': 'kapitalisatie_pauze',
+                    'datum': splitpunt,
+                    'rente': vordering.opgebouwde_rente,
+                    'oude_hoofdsom': vordering.hoofdsom,
+                    'nieuwe_hoofdsom': vordering.hoofdsom + vordering.opgebouwde_rente
+                })
+                vordering.hoofdsom += vordering.opgebouwde_rente
+                vordering.opgebouwde_rente = Decimal("0")
 
             # Kapitalisatie op verjaardag
-            if is_verjaardag:
+            elif is_verjaardag:
                 vordering.events.append({
                     'type': 'kapitalisatie',
                     'datum': splitpunt,
@@ -305,52 +448,74 @@ class RenteCalculator:
 
         vordering.laatst_berekend_tot = tot_datum
 
-    def verwerk_betaling(self, betaling: Deelbetaling):
-        """Verwerk een deelbetaling."""
-        restant = betaling.bedrag
-        datum = betaling.datum
+    def _verdeel_evenredig(self, bedrag: Decimal, vorderingen: List[Vordering],
+                            get_openstaand, set_openstaand, add_afgelost,
+                            betaling: Deelbetaling, toerekening_type: str) -> Decimal:
+        """
+        Verdeel een bedrag evenredig over meerdere vorderingen.
+        Returns: restant na verdeling.
+        """
+        if bedrag <= 0:
+            return bedrag
 
-        # Bepaal volgorde van vorderingen
-        if betaling.aangewezen_vorderingen:
-            # Eerst de aangewezen vorderingen verwerken
-            vorderingen_volgorde = []
-            verwerkte_kenmerken = set()
-            for kenmerk in betaling.aangewezen_vorderingen:
-                if kenmerk in self.vorderingen:
-                    v = self.vorderingen[kenmerk]
-                    if not v.voldaan and v.startdatum <= datum:
-                        vorderingen_volgorde.append(v)
-                        verwerkte_kenmerken.add(kenmerk)
+        # Bereken totaal openstaand voor dit component
+        totaal_openstaand = sum(get_openstaand(v) for v in vorderingen)
+        if totaal_openstaand <= 0:
+            return bedrag
 
-            # Daarna overige actieve vorderingen voor eventueel restant (overflow)
-            # Sorteer op: (1) hoogste rente%, (2) oudste startdatum
-            overige = [v for v in self.get_actieve_vorderingen(datum)
-                      if v.kenmerk not in verwerkte_kenmerken]
-            overige_gesorteerd = sorted(
-                overige,
-                key=lambda v: (-v.get_rente_pct(datum), v.startdatum)
-            )
-            vorderingen_volgorde.extend(overige_gesorteerd)
-        else:
-            # Strategie A: meest bezwarend met tiebreaker op oudste startdatum
-            actief = self.get_actieve_vorderingen(datum)
-            # Sorteer op: (1) hoogste rente% (descending), (2) oudste startdatum (ascending)
-            vorderingen_volgorde = sorted(
-                actief,
-                key=lambda v: (-v.get_rente_pct(datum), v.startdatum)
-            )
+        # Bepaal hoeveel we kunnen aflossen
+        te_verdelen = min(bedrag, totaal_openstaand)
+        restant = bedrag
 
-        for vordering in vorderingen_volgorde:
-            if restant <= 0:
-                break
+        # Verdeel evenredig op basis van aandeel in totaal
+        for vordering in vorderingen:
+            openstaand = get_openstaand(vordering)
+            if openstaand <= 0:
+                continue
 
-            # Bereken rente tot betalingsdatum
+            # Bereken aandeel (proportioneel)
+            aandeel = openstaand / totaal_openstaand
+            aflossing = (te_verdelen * aandeel).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+            # Zorg dat we niet meer aflossen dan openstaand
+            aflossing = min(aflossing, openstaand, restant)
+
+            if aflossing > 0:
+                set_openstaand(vordering, get_openstaand(vordering) - aflossing)
+                add_afgelost(vordering, aflossing)
+                restant -= aflossing
+                betaling.toerekeningen.append({
+                    'vordering': vordering.kenmerk,
+                    'type': toerekening_type,
+                    'bedrag': aflossing
+                })
+
+        return restant
+
+    def _verwerk_vordering_groep(self, vorderingen: List[Vordering], restant: Decimal,
+                                  datum: date, betaling: Deelbetaling) -> Decimal:
+        """Verwerk een groep vorderingen met dezelfde prioriteit."""
+        if len(vorderingen) == 1:
+            # Enkele vordering: verwerk normaal
+            vordering = vorderingen[0]
             self.bereken_rente_tot_datum(vordering, datum)
 
-            # Volgorde: kosten → rente → hoofdsom (art. 6:44 BW)
+            # Volgorde: rente_kosten → kosten → rente_hoofdsom → hoofdsom
 
-            # 1. Kosten
-            if vordering.openstaande_kosten > 0:
+            # 1. Rente op kosten
+            if vordering.opgebouwde_rente_kosten > 0:
+                aflossing = min(restant, vordering.opgebouwde_rente_kosten)
+                vordering.opgebouwde_rente_kosten -= aflossing
+                vordering.afgelost_rente_kosten += aflossing
+                restant -= aflossing
+                betaling.toerekeningen.append({
+                    'vordering': vordering.kenmerk,
+                    'type': 'rente_kosten',
+                    'bedrag': aflossing
+                })
+
+            # 2. Kosten
+            if restant > 0 and vordering.openstaande_kosten > 0:
                 aflossing = min(restant, vordering.openstaande_kosten)
                 vordering.openstaande_kosten -= aflossing
                 vordering.afgelost_kosten += aflossing
@@ -361,7 +526,7 @@ class RenteCalculator:
                     'bedrag': aflossing
                 })
 
-            # 2. Rente
+            # 3. Rente op hoofdsom
             if restant > 0 and vordering.opgebouwde_rente > 0:
                 aflossing = min(restant, vordering.opgebouwde_rente)
                 vordering.opgebouwde_rente -= aflossing
@@ -373,7 +538,7 @@ class RenteCalculator:
                     'bedrag': aflossing
                 })
 
-            # 3. Hoofdsom
+            # 4. Hoofdsom
             if restant > 0 and vordering.hoofdsom > 0:
                 aflossing = min(restant, vordering.hoofdsom)
                 vordering.hoofdsom -= aflossing
@@ -384,15 +549,98 @@ class RenteCalculator:
                     'type': 'hoofdsom',
                     'bedrag': aflossing
                 })
+        else:
+            # Meerdere vorderingen met zelfde prioriteit: verdeel evenredig
+            for v in vorderingen:
+                self.bereken_rente_tot_datum(v, datum)
 
-            # Check of vordering voldaan is
-            if vordering.hoofdsom == 0 and vordering.opgebouwde_rente == 0 and vordering.openstaande_kosten == 0:
-                vordering.voldaan = True
-                vordering.voldaan_datum = datum
-                vordering.events.append({
-                    'type': 'voldaan',
-                    'datum': datum
-                })
+            # 1. Rente op kosten - evenredig
+            restant = self._verdeel_evenredig(
+                restant, vorderingen,
+                lambda v: v.opgebouwde_rente_kosten,
+                lambda v, val: setattr(v, 'opgebouwde_rente_kosten', val),
+                lambda v, val: setattr(v, 'afgelost_rente_kosten', v.afgelost_rente_kosten + val),
+                betaling, 'rente_kosten'
+            )
+
+            # 2. Kosten - evenredig
+            restant = self._verdeel_evenredig(
+                restant, vorderingen,
+                lambda v: v.openstaande_kosten,
+                lambda v, val: setattr(v, 'openstaande_kosten', val),
+                lambda v, val: setattr(v, 'afgelost_kosten', v.afgelost_kosten + val),
+                betaling, 'kosten'
+            )
+
+            # 3. Rente op hoofdsom - evenredig
+            restant = self._verdeel_evenredig(
+                restant, vorderingen,
+                lambda v: v.opgebouwde_rente,
+                lambda v, val: setattr(v, 'opgebouwde_rente', val),
+                lambda v, val: setattr(v, 'afgelost_rente', v.afgelost_rente + val),
+                betaling, 'rente'
+            )
+
+            # 4. Hoofdsom - evenredig
+            restant = self._verdeel_evenredig(
+                restant, vorderingen,
+                lambda v: v.hoofdsom,
+                lambda v, val: setattr(v, 'hoofdsom', val),
+                lambda v, val: setattr(v, 'afgelost_hoofdsom', v.afgelost_hoofdsom + val),
+                betaling, 'hoofdsom'
+            )
+
+        # Check of vorderingen voldaan zijn
+        for vordering in vorderingen:
+            if (vordering.hoofdsom == 0 and vordering.opgebouwde_rente == 0 and
+                vordering.openstaande_kosten == 0 and vordering.opgebouwde_rente_kosten == 0):
+                if not vordering.voldaan:
+                    vordering.voldaan = True
+                    vordering.voldaan_datum = datum
+                    vordering.events.append({
+                        'type': 'voldaan',
+                        'datum': datum
+                    })
+
+        return restant
+
+    def verwerk_betaling(self, betaling: Deelbetaling):
+        """Verwerk een deelbetaling."""
+        restant = betaling.bedrag
+        datum = betaling.datum
+
+        # Bepaal volgorde van vorderingen
+        if betaling.aangewezen_vorderingen:
+            # Eerst de aangewezen vorderingen verwerken (geen evenredige verdeling)
+            for kenmerk in betaling.aangewezen_vorderingen:
+                if restant <= 0:
+                    break
+                if kenmerk in self.vorderingen:
+                    v = self.vorderingen[kenmerk]
+                    if not v.voldaan and v.startdatum <= datum:
+                        restant = self._verwerk_vordering_groep([v], restant, datum, betaling)
+
+            # Daarna overige actieve vorderingen voor eventueel restant (overflow)
+            verwerkte_kenmerken = set(betaling.aangewezen_vorderingen)
+            overige = [v for v in self.get_actieve_vorderingen(datum)
+                      if v.kenmerk not in verwerkte_kenmerken]
+        else:
+            overige = self.get_actieve_vorderingen(datum)
+
+        # Groepeer overige vorderingen op prioriteit (rente%, startdatum)
+        # en verwerk per groep (evenredig bij gelijke prioriteit)
+        from itertools import groupby
+
+        overige_gesorteerd = sorted(
+            overige,
+            key=lambda v: (-v.get_rente_pct(datum), v.startdatum)
+        )
+
+        for _, groep in groupby(overige_gesorteerd, key=lambda v: (v.get_rente_pct(datum), v.startdatum)):
+            if restant <= 0:
+                break
+            groep_list = list(groep)
+            restant = self._verwerk_vordering_groep(groep_list, restant, datum, betaling)
 
         betaling.verwerkt = betaling.bedrag - restant
 
