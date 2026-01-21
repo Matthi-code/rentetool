@@ -1,5 +1,47 @@
 # Progress Log
 
+## 2026-01-22 — Checkpoint (00:30)
+
+**Gedaan deze sessie:**
+- UI verbeteringen overzicht per vordering:
+  - Samenvatting toont nu "X vorderingen, Y kostenposten" apart (ipv "Z vorderingen")
+  - Groene balk bij betaling zachter gemaakt (bg-green-100 ipv bg-green-600)
+  - Euro uitlijning verbeterd: gap-2 tussen € en bedrag, vaste breedte (5rem) voor bedragen
+  - Kolommen "Kosten" en "Afg. Kst" verwijderd uit overzicht tabel
+  - Euro uitlijning ook toegepast op vorderingen en deelbetalingen tabellen
+- Backend toerekening aangepast:
+  - Volgorde nu: rente kosten → kosten → rente hoofdsom → hoofdsom
+  - Evenredige verdeling geïmplementeerd bij gelijke vorderingen (zelfde rente% én startdatum)
+
+**Huidige staat:**
+- App volledig functioneel
+- Commit 60d4b2b gepusht naar GitHub
+- Auto-deploy naar Vercel en Fly.io
+
+**Volgende stap:**
+- RBAC feature verder implementeren
+
+---
+
+## 2026-01-21 — Checkpoint (00:15)
+
+**Gedaan deze sessie:**
+- `kosten_rentedatum` feature geïmplementeerd (aparte rentedatum voor kosten)
+- `periodes_kosten` toegevoegd aan API response en frontend (detail renteperiodes kosten)
+- UI verbeteringen:
+  - Euro-teken uitlijning met `formatBedragParts` in tabellen
+  - Monospace fonts voor kenmerken
+  - Klokje (⏱) voor kosten met afwijkende rentedatum
+  - Groene betaling-balk leesbaarder (donkergroen + wit)
+  - Kosten veld placeholder fix
+- Performance: localStorage caching voor dashboard/cases
+- Einddatum input fix (onBlur ipv onChange)
+
+**Status:**
+- Rente-bug gefixed met `Number()` wrappers
+
+---
+
 ## 2026-01-18 — Checkpoint (22:45)
 
 **Gedaan deze sessie:**
