@@ -157,13 +157,17 @@ export async function berekenRente(
     einddatum: caseData.einddatum,
     strategie: caseData.strategie,
     vorderingen: caseData.vorderingen.map((v) => ({
+      item_type: v.item_type || 'vordering',
       kenmerk: v.kenmerk,
       bedrag: v.bedrag,
       datum: v.datum,
       rentetype: v.rentetype,
       kosten: v.kosten,
+      kosten_rentedatum: v.kosten_rentedatum,
       opslag: v.opslag,
       opslag_ingangsdatum: v.opslag_ingangsdatum,
+      pauze_start: v.pauze_start,
+      pauze_eind: v.pauze_eind,
     })),
     deelbetalingen: caseData.deelbetalingen.map((d) => ({
       kenmerk: d.kenmerk,

@@ -51,10 +51,34 @@ const ROLE_LABELS: Record<string, string> = {
 export default function AdminPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [adminStatus, setAdminStatus] = useState<AdminCheckResponse | null>(null);
-  const [stats, setStats] = useState<AdminStats | null>(null);
-  const [domainStats, setDomainStats] = useState<DomainOverview | null>(null);
-  const [users, setUsers] = useState<UserStats[]>([]);
+  const [adminStatus, setAdminStatus] = useState<AdminCheckResponse | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cachedAdminStatus');
+      if (cached) try { return JSON.parse(cached); } catch { return null; }
+    }
+    return null;
+  });
+  const [stats, setStats] = useState<AdminStats | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cachedAdminStats');
+      if (cached) try { return JSON.parse(cached); } catch { return null; }
+    }
+    return null;
+  });
+  const [domainStats, setDomainStats] = useState<DomainOverview | null>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cachedDomainStats');
+      if (cached) try { return JSON.parse(cached); } catch { return null; }
+    }
+    return null;
+  });
+  const [users, setUsers] = useState<UserStats[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cachedAdminUsers');
+      if (cached) try { return JSON.parse(cached); } catch { return []; }
+    }
+    return [];
+  });
   const [cases, setCases] = useState<AdminCase[]>([]);
   const [usageLogs, setUsageLogs] = useState<AdminUsageLog[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -84,6 +108,7 @@ export default function AdminPage() {
     try {
       const status = await checkAdmin();
       setAdminStatus(status);
+      localStorage.setItem('cachedAdminStatus', JSON.stringify(status));
 
       if (status.is_admin || status.is_org_admin) {
         const [statsData, usersData, domainData] = await Promise.all([
@@ -91,9 +116,16 @@ export default function AdminPage() {
           getAdminUsers(),
           status.is_admin ? getDomainStats().catch(() => null) : Promise.resolve(null),
         ]);
-        if (statsData) setStats(statsData);
-        if (domainData) setDomainStats(domainData);
+        if (statsData) {
+          setStats(statsData);
+          localStorage.setItem('cachedAdminStats', JSON.stringify(statsData));
+        }
+        if (domainData) {
+          setDomainStats(domainData);
+          localStorage.setItem('cachedDomainStats', JSON.stringify(domainData));
+        }
         setUsers(usersData);
+        localStorage.setItem('cachedAdminUsers', JSON.stringify(usersData));
       }
     } catch (err) {
       setError('Kon admin gegevens niet laden');
@@ -174,7 +206,9 @@ export default function AdminPage() {
     usersByDomain[b].users.length - usersByDomain[a].users.length
   );
 
-  if (authLoading || loading) {
+  // Show cached content immediately if available
+  const hasCachedData = adminStatus !== null && users.length > 0;
+  if ((authLoading || loading) && !hasCachedData) {
     return (
       <div className="container py-8 max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-center py-16">
@@ -223,7 +257,14 @@ export default function AdminPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-primary">Beheer</h1>
+          <h1 className="font-serif text-3xl font-bold text-primary">
+            Beheer
+            {loading && hasCachedData && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground animate-pulse">
+                &#x27F3;
+              </span>
+            )}
+          </h1>
           <p className="text-muted-foreground mt-1">
             {isAdmin ? 'Systeem overzicht en gebruikersbeheer' : `Organisatie beheer (${adminStatus?.domain})`}
           </p>

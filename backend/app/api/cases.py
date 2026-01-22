@@ -373,20 +373,28 @@ async def create_vordering(case_id: str, vordering: VorderingCreate, user_id: st
 
     v_data = {
         'case_id': case_id,
+        'item_type': vordering.item_type or 'vordering',
         'kenmerk': vordering.kenmerk,
         'bedrag': float(vordering.bedrag),
         'datum': str(vordering.datum),
         'rentetype': vordering.rentetype,
         'kosten': float(vordering.kosten) if vordering.kosten else 0,
+        'kosten_rentedatum': str(vordering.kosten_rentedatum) if vordering.kosten_rentedatum else None,
         'opslag': float(vordering.opslag) if vordering.opslag else None,
         'opslag_ingangsdatum': str(vordering.opslag_ingangsdatum) if vordering.opslag_ingangsdatum else None,
+        'pauze_start': str(vordering.pauze_start) if vordering.pauze_start else None,
+        'pauze_eind': str(vordering.pauze_eind) if vordering.pauze_eind else None,
         'volgorde': next_volgorde,
     }
 
-    response = db.table('vorderingen').insert(v_data).execute()
+    insert_response = db.table('vorderingen').insert(v_data).execute()
 
-    if not response.data:
+    if not insert_response.data:
         raise HTTPException(status_code=500, detail="Failed to create vordering")
+
+    # Fetch the created record to ensure all columns are returned
+    vordering_id = insert_response.data[0]['id']
+    response = db.table('vorderingen').select('*').eq('id', vordering_id).execute()
 
     return VorderingResponse(**response.data[0])
 
@@ -395,6 +403,11 @@ async def create_vordering(case_id: str, vordering: VorderingCreate, user_id: st
 async def update_vordering(vordering_id: str, vordering: VorderingCreate, user_id: str = Depends(get_current_user)):
     """Update a vordering."""
     db = get_db()
+
+    # Debug logging
+    print(f"=== UPDATE VORDERING ===")
+    print(f"Received item_type: {vordering.item_type}")
+    print(f"Full vordering data: {vordering.model_dump()}")
 
     # Get vordering and verify edit permission via case
     v_response = db.table('vorderingen').select('case_id').eq('id', vordering_id).execute()
@@ -405,16 +418,26 @@ async def update_vordering(vordering_id: str, vordering: VorderingCreate, user_i
         raise HTTPException(status_code=403, detail="Geen bewerkrechten")
 
     update_data = {
+        'item_type': str(vordering.item_type) if vordering.item_type else 'vordering',
         'kenmerk': vordering.kenmerk,
         'bedrag': float(vordering.bedrag),
         'datum': str(vordering.datum),
         'rentetype': vordering.rentetype,
         'kosten': float(vordering.kosten) if vordering.kosten else 0,
+        'kosten_rentedatum': str(vordering.kosten_rentedatum) if vordering.kosten_rentedatum else None,
         'opslag': float(vordering.opslag) if vordering.opslag else None,
         'opslag_ingangsdatum': str(vordering.opslag_ingangsdatum) if vordering.opslag_ingangsdatum else None,
+        'pauze_start': str(vordering.pauze_start) if vordering.pauze_start else None,
+        'pauze_eind': str(vordering.pauze_eind) if vordering.pauze_eind else None,
     }
 
-    response = db.table('vorderingen').update(update_data).eq('id', vordering_id).execute()
+    print(f"Update data being sent to DB: {update_data}")
+
+    update_result = db.table('vorderingen').update(update_data).eq('id', vordering_id).execute()
+    print(f"Update result: {update_result.data}")
+
+    # Fetch the updated record to ensure all columns are returned
+    response = db.table('vorderingen').select('*').eq('id', vordering_id).execute()
 
     if not response.data:
         raise HTTPException(status_code=500, detail="Failed to update vordering")

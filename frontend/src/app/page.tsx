@@ -45,8 +45,22 @@ type FontSize = 'small' | 'medium' | 'large';
 export default function Dashboard() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [cases, setCases] = useState<Case[]>([]);
+  const [cases, setCases] = useState<Case[]>(() => {
+    // Load cached cases for instant display
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cachedCases');
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          return [];
+        }
+      }
+    }
+    return [];
+  });
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
@@ -119,15 +133,19 @@ export default function Dashboard() {
     }
   }, [user, authLoading, router]);
 
-  async function loadCases() {
+  async function loadCases(isRefresh = false) {
+    if (isRefresh) setIsRefreshing(true);
     try {
       const data = await getCases();
       setCases(data);
+      // Cache for instant display on next visit
+      localStorage.setItem('cachedCases', JSON.stringify(data));
     } catch (err) {
       setError('Kon cases niet laden. Is de backend gestart?');
       console.error(err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }
 
@@ -246,7 +264,9 @@ export default function Dashboard() {
     tablePadding: { small: 'py-1', medium: 'py-1.5', large: 'py-2' },
   };
 
-  if (authLoading || loading) {
+  // Only show full loading spinner if no cached data available
+  const hasCachedData = cases.length > 0;
+  if ((authLoading || loading) && !hasCachedData) {
     return (
       <div className="container py-8 max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-center py-16">
@@ -270,7 +290,14 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="font-serif text-3xl font-bold text-primary leading-tight">Uw Zaken</h1>
+          <h1 className="font-serif text-3xl font-bold text-primary leading-tight">
+            Uw Zaken
+            {(loading || isRefreshing) && hasCachedData && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground animate-pulse">
+                ⟳
+              </span>
+            )}
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
             {cases.length === 0
               ? 'Maak uw eerste renteberekening aan'

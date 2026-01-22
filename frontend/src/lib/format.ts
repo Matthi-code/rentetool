@@ -17,6 +17,21 @@ export function formatBedrag(amount: number | undefined | null): string {
 }
 
 /**
+ * Format a number as Euro currency, returning euro sign and amount separately
+ * For better alignment in tables
+ */
+export function formatBedragParts(amount: number | undefined | null): { sign: string; amount: string } {
+  if (amount === undefined || amount === null || isNaN(amount)) {
+    return { sign: '€', amount: '0,00' };
+  }
+  const formatted = new Intl.NumberFormat('nl-NL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return { sign: '€', amount: formatted };
+}
+
+/**
  * Format a date string as DD-MM-YYYY
  */
 export function formatDatum(dateStr: string): string {
@@ -69,4 +84,18 @@ export function toInputDate(isoDate: string): string {
  */
 export function getToday(): string {
   return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Format a date minus one day (for "t/m" display)
+ * Converts exclusive end date to inclusive end date
+ */
+export function formatDatumTm(dateStr: string): string {
+  const date = new Date(dateStr);
+  date.setDate(date.getDate() - 1);
+  return date.toLocaleDateString('nl-NL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
