@@ -1,5 +1,32 @@
 # Progress Log
 
+## 2026-01-22 — Checkpoint (13:00)
+
+**Gedaan deze sessie:**
+- Specificatie per vordering verbeterd:
+  - Subtotaal regel toegevoegd vóór betaling (cumulatieve rente tot dat punt)
+  - Resterende rente na betaling wordt getoond als niet alles is afgelost
+  - Totaal regel toegevoegd onderaan elke specificatie tabel
+  - Backend: `opgebouwd_voor` veld toegevoegd aan rente-toerekeningen
+- Help pagina uitgebreid:
+  - Uitleg evenredige/proportionele verdeling met concreet voorbeeld
+  - Verduidelijkt waarom niet alle rente van één vordering wordt afgelost bij meerdere vorderingen
+- Cleanup:
+  - Oude screenshots verwijderd uit images/
+  - Supabase migrations toegevoegd (005, 006)
+
+**Commits:**
+- `21f9679` Add subtotaal and totaal rows to specification tables
+- `cced981` Cleanup and add migrations
+
+**Huidige staat:**
+- Gepusht naar GitHub, auto-deploy naar Vercel en Fly.io
+
+**Volgende stap:**
+- RBAC/Sharing feature implementeren
+
+---
+
 ## 2026-01-22 — Checkpoint (01:00)
 
 **Gedaan deze sessie:**
