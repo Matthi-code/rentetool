@@ -862,7 +862,7 @@ export default function CaseDetailPage() {
                           >
                             {v.item_type === 'kosten' ? 'K' : 'V'}
                           </span>
-                          <span>{v.kenmerk}</span>
+                          <span className="truncate max-w-40" title={v.kenmerk}>{v.kenmerk}</span>
                           {v.pauze_start && v.pauze_eind && (
                             <span className="text-orange-500" title={`Geschorst: ${formatDatum(v.pauze_start)} - ${formatDatum(v.pauze_eind)}`}>⏸</span>
                           )}
@@ -1348,7 +1348,7 @@ export default function CaseDetailPage() {
                             >
                               {v.item_type === 'kosten' ? 'K' : 'V'}
                             </Badge>
-                            {v.kenmerk}
+                            <span className="truncate max-w-40" title={v.kenmerk}>{v.kenmerk}</span>
                             {v.pauze_start && v.pauze_eind && (
                               <span className="text-orange-500" title={`Geschorst: ${formatDatum(v.pauze_start)} - ${formatDatum(v.pauze_eind)}`}>⏸</span>
                             )}
