@@ -10,7 +10,7 @@ Gebaseerd op de referentie-implementatie met correcties voor:
 """
 
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import date
+from datetime import date, timedelta
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
@@ -221,7 +221,9 @@ class RenteCalculator:
     def __init__(self, vorderingen: List[Vordering], deelbetalingen: List[Deelbetaling], einddatum: date):
         self.vorderingen = {v.kenmerk: v for v in vorderingen}
         self.deelbetalingen = sorted(deelbetalingen, key=lambda d: d.datum)
-        self.einddatum = einddatum
+        # Einddatum is inclusief (t/m), dus +1 dag voor interne berekening (exclusief)
+        self.einddatum = einddatum + timedelta(days=1)
+        self.einddatum_display = einddatum  # Originele datum voor weergave
         self.events = []
 
     def get_actieve_vorderingen(self, datum: date) -> List[Vordering]:
@@ -484,11 +486,15 @@ class RenteCalculator:
                 set_openstaand(vordering, get_openstaand(vordering) - aflossing)
                 add_afgelost(vordering, aflossing)
                 restant -= aflossing
-                betaling.toerekeningen.append({
+                toerekening = {
                     'vordering': vordering.kenmerk,
                     'type': toerekening_type,
                     'bedrag': aflossing
-                })
+                }
+                # Voor rente-types: voeg opgebouwd_voor toe
+                if toerekening_type in ('rente', 'rente_kosten'):
+                    toerekening['opgebouwd_voor'] = openstaand
+                betaling.toerekeningen.append(toerekening)
 
         return restant
 
@@ -504,6 +510,7 @@ class RenteCalculator:
 
             # 1. Rente op kosten
             if vordering.opgebouwde_rente_kosten > 0:
+                opgebouwd_voor = vordering.opgebouwde_rente_kosten
                 aflossing = min(restant, vordering.opgebouwde_rente_kosten)
                 vordering.opgebouwde_rente_kosten -= aflossing
                 vordering.afgelost_rente_kosten += aflossing
@@ -511,7 +518,8 @@ class RenteCalculator:
                 betaling.toerekeningen.append({
                     'vordering': vordering.kenmerk,
                     'type': 'rente_kosten',
-                    'bedrag': aflossing
+                    'bedrag': aflossing,
+                    'opgebouwd_voor': opgebouwd_voor
                 })
 
             # 2. Kosten
@@ -528,6 +536,7 @@ class RenteCalculator:
 
             # 3. Rente op hoofdsom
             if restant > 0 and vordering.opgebouwde_rente > 0:
+                opgebouwd_voor = vordering.opgebouwde_rente
                 aflossing = min(restant, vordering.opgebouwde_rente)
                 vordering.opgebouwde_rente -= aflossing
                 vordering.afgelost_rente += aflossing
@@ -535,7 +544,8 @@ class RenteCalculator:
                 betaling.toerekeningen.append({
                     'vordering': vordering.kenmerk,
                     'type': 'rente',
-                    'bedrag': aflossing
+                    'bedrag': aflossing,
+                    'opgebouwd_voor': opgebouwd_voor
                 })
 
             # 4. Hoofdsom
@@ -658,5 +668,5 @@ class RenteCalculator:
         return {
             'vorderingen': self.vorderingen,
             'deelbetalingen': self.deelbetalingen,
-            'einddatum': self.einddatum
+            'einddatum': self.einddatum_display  # Originele einddatum voor weergave
         }

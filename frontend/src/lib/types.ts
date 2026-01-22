@@ -4,25 +4,35 @@
 
 // API Types
 
+export type ItemType = 'vordering' | 'kosten';
+
 export interface Vordering {
   id: string;
+  item_type: ItemType;
   kenmerk: string;
   bedrag: number;
   datum: string;
   rentetype: number;
   kosten: number;
+  kosten_rentedatum?: string;  // DEPRECATED: Aparte rentedatum voor kosten
   opslag?: number;
   opslag_ingangsdatum?: string;
+  pauze_start?: string;
+  pauze_eind?: string;
 }
 
 export interface VorderingCreate {
+  item_type?: ItemType;
   kenmerk: string;
   bedrag: number;
   datum: string;
   rentetype: number;
-  kosten: number;
+  kosten?: number;
+  kosten_rentedatum?: string;  // DEPRECATED: Aparte rentedatum voor kosten
   opslag?: number;
   opslag_ingangsdatum?: string;
+  pauze_start?: string;
+  pauze_eind?: string;
 }
 
 export interface Deelbetaling {
@@ -106,26 +116,45 @@ export interface Periode {
   rente_pct: number;
   rente: number;
   is_kapitalisatie: boolean;
+  is_pauze?: boolean;
+}
+
+export interface PeriodeKosten {
+  start: string;
+  eind: string;
+  dagen: number;
+  kosten: number;
+  rente_pct: number;
+  rente: number;
+  is_pauze?: boolean;
 }
 
 export interface Toerekening {
   vordering: string;
-  type: 'kosten' | 'rente' | 'hoofdsom';
+  type: 'kosten' | 'rente' | 'rente_kosten' | 'hoofdsom';
   bedrag: number;
+  opgebouwd_voor?: number;  // Opgebouwde rente vóór betaling (alleen voor rente types)
 }
 
 export interface VorderingResultaat {
+  item_type: ItemType;
   kenmerk: string;
   oorspronkelijk_bedrag: number;
   kosten: number;
-  totale_rente: number;
+  kosten_rentedatum?: string;  // Aparte rentedatum als anders dan startdatum
+  totale_rente: number;  // Rente op hoofdsom
+  totale_rente_kosten: number;  // Rente op kosten
   afgelost_hoofdsom: number;
   afgelost_kosten: number;
-  afgelost_rente: number;
+  afgelost_rente: number;  // Rente op hoofdsom
+  afgelost_rente_kosten: number;  // Rente op kosten
   openstaand: number;
   status: 'OPEN' | 'VOLDAAN';
   voldaan_datum?: string;
+  pauze_start?: string;
+  pauze_eind?: string;
   periodes: Periode[];
+  periodes_kosten: PeriodeKosten[];
 }
 
 export interface DeelbetalingResultaat {
@@ -139,10 +168,12 @@ export interface DeelbetalingResultaat {
 export interface Totalen {
   oorspronkelijk: number;
   kosten: number;
-  rente: number;
+  rente: number;  // Rente op hoofdsom
+  rente_kosten: number;  // Rente op kosten
   afgelost_hoofdsom: number;
   afgelost_kosten: number;
-  afgelost_rente: number;
+  afgelost_rente: number;  // Rente op hoofdsom
+  afgelost_rente_kosten: number;  // Rente op kosten
   openstaand: number;
 }
 

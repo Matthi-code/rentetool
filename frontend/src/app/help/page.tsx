@@ -186,11 +186,33 @@ export default function HelpPage() {
           </div>
 
           <div>
-            <h3 className="font-semibold mb-3">Evenredige verdeling</h3>
-            <p className="text-sm text-muted-foreground">
+            <h3 className="font-semibold mb-3">Evenredige verdeling bij meerdere vorderingen</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               Bij meerdere vorderingen met <strong>exact dezelfde rente%</strong> én <strong>dezelfde startdatum</strong>
-              wordt een betaling evenredig verdeeld over deze vorderingen.
+              wordt een betaling <strong>proportioneel verdeeld</strong> over deze vorderingen, op basis van het openstaande bedrag.
             </p>
+
+            <div className="p-4 bg-muted/30 rounded-lg">
+              <h4 className="font-semibold mb-2">Voorbeeld:</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                Twee vorderingen met zelfde rente (4%) en startdatum:
+              </p>
+              <ul className="text-sm space-y-1 mb-3">
+                <li>• Vordering A: €130.000 openstaand (rente: €9.306)</li>
+                <li>• Vordering B: €5.000 openstaand (rente: €358)</li>
+              </ul>
+              <p className="text-sm text-muted-foreground mb-2">
+                Betaling van €6.000 wordt proportioneel verdeeld:
+              </p>
+              <ul className="text-sm space-y-1">
+                <li>• Vordering A krijgt: €6.000 × (130.000 / 135.000) = <strong>€5.778</strong></li>
+                <li>• Vordering B krijgt: €6.000 × (5.000 / 135.000) = <strong>€222</strong></li>
+              </ul>
+              <p className="text-xs text-muted-foreground mt-3 italic">
+                Dit verklaart waarom niet alle opgebouwde rente van één vordering wordt afgelost,
+                ook al lijkt de betaling groot genoeg — het bedrag wordt verdeeld over alle vorderingen met dezelfde prioriteit.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

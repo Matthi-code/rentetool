@@ -1443,7 +1443,7 @@ export default function CaseDetailPage() {
                       >
                         {v.item_type === 'kosten' ? 'K' : 'V'}
                       </Badge>
-                      <span className="font-medium font-mono min-w-28 max-w-48 truncate shrink-0" title={v.kenmerk}>
+                      <span className="font-medium font-mono w-48 truncate shrink-0" title={v.kenmerk}>
                         {v.kenmerk}
                         {v.pauze_start && v.pauze_eind && (
                           <span className="ml-1 text-orange-500">⏸</span>
@@ -1454,8 +1454,8 @@ export default function CaseDetailPage() {
                         if (vordInfo) {
                           return (
                             <>
-                              <span className="text-xs text-muted-foreground font-mono w-24 shrink-0">{formatDatum(vordInfo.datum)}</span>
-                              <Badge variant="outline" className="text-xs bg-muted/50 w-24 justify-center shrink-0">
+                              <span className="font-mono w-24 shrink-0 ml-2">{formatDatum(vordInfo.datum)}</span>
+                              <Badge variant="outline" className="text-xs bg-muted/50 w-24 justify-center shrink-0 ml-2">
                                 {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
                                 {vordInfo.opslag && vordInfo.rentetype === 5 ? ` ${(vordInfo.opslag * 100).toFixed(1)}%` : null}
                                 {vordInfo.opslag && (vordInfo.rentetype === 6 || vordInfo.rentetype === 7) ? ` +${(vordInfo.opslag * 100).toFixed(1)}%` : null}
@@ -1530,49 +1530,109 @@ export default function CaseDetailPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {v.periodes.map((p, i) => {
-                                // Check if there's a payment on the end date of this period
-                                const betalingOpEinddatum = result.deelbetalingen.find(
-                                  db => db.datum === p.eind && db.toerekeningen.some(t => t.vordering === v.kenmerk)
-                                );
-                                const toerekeningen = betalingOpEinddatum?.toerekeningen.filter(t => t.vordering === v.kenmerk) || [];
+                              {(() => {
+                                let cumulatieveRente = 0;
+                                return v.periodes.map((p, i) => {
+                                  // Add this period's interest to cumulative total (skip pauze periods)
+                                  if (!p.is_pauze) {
+                                    cumulatieveRente += Number(p.rente) || 0;
+                                  }
+                                  const subtotaalTotNu = cumulatieveRente;
 
-                                return (
-                                  <React.Fragment key={i}>
-                                    <TableRow className={p.is_pauze ? 'bg-orange-50' : p.is_kapitalisatie ? 'bg-blue-50' : ''}>
-                                      <TableCell className="font-mono">
-                                        {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
-                                        {p.is_pauze && <span className="ml-1 text-orange-500 font-medium">⏸</span>}
-                                        {p.is_kapitalisatie && <span className="ml-1 text-blue-600 font-medium">↻</span>}
-                                      </TableCell>
-                                      <TableCell className="text-right font-mono">{p.dagen}</TableCell>
-                                      <TableCell className="text-right font-mono">{formatBedrag(p.hoofdsom)}</TableCell>
-                                      <TableCell className="text-right font-mono">{p.is_pauze ? <span className="text-orange-500">geschorst</span> : formatPercentage(p.rente_pct)}</TableCell>
-                                      <TableCell className="text-right font-mono">{formatBedrag(p.rente)}</TableCell>
-                                    </TableRow>
-                                    {betalingOpEinddatum && toerekeningen.length > 0 && (
-                                      <TableRow className="bg-green-100 border-green-300">
-                                        <TableCell colSpan={5} className="py-2">
-                                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                            <span className="font-semibold font-mono flex items-center gap-2 text-green-800">
-                                              <span>💰</span>
-                                              Betaling {betalingOpEinddatum.kenmerk || ''} op {formatDatum(betalingOpEinddatum.datum)}
-                                            </span>
-                                            <span className="font-mono flex flex-wrap gap-x-4 text-green-700">
-                                              {toerekeningen.map((t, ti) => (
-                                                <span key={ti} className="whitespace-nowrap">
-                                                  <span className="text-green-600">{t.type}:</span>{' '}
-                                                  <span className="font-semibold text-green-800">{formatBedrag(t.bedrag)}</span>
-                                                </span>
-                                              ))}
-                                            </span>
-                                          </div>
+                                  // Check if there's a payment on the end date of this period
+                                  const betalingOpEinddatum = result.deelbetalingen.find(
+                                    db => db.datum === p.eind && db.toerekeningen.some(t => t.vordering === v.kenmerk)
+                                  );
+                                  const toerekeningen = betalingOpEinddatum?.toerekeningen.filter(t => t.vordering === v.kenmerk) || [];
+
+                                  // After payment, subtract the interest that was paid off
+                                  if (betalingOpEinddatum && toerekeningen.length > 0) {
+                                    const renteAfgelost = toerekeningen
+                                      .filter(t => t.type === 'rente')
+                                      .reduce((sum, t) => sum + (Number(t.bedrag) || 0), 0);
+                                    cumulatieveRente = Math.max(0, cumulatieveRente - renteAfgelost);
+                                  }
+
+                                  // Reset cumulative after kapitalisatie (interest added to principal)
+                                  if (p.is_kapitalisatie) {
+                                    cumulatieveRente = 0;
+                                  }
+
+                                  return (
+                                    <React.Fragment key={i}>
+                                      <TableRow className={p.is_pauze ? 'bg-orange-50' : p.is_kapitalisatie ? 'bg-blue-50' : ''}>
+                                        <TableCell className="font-mono">
+                                          {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
+                                          {p.is_pauze && <span className="ml-1 text-orange-500 font-medium">⏸</span>}
+                                          {p.is_kapitalisatie && <span className="ml-1 text-blue-600 font-medium">↻</span>}
                                         </TableCell>
+                                        <TableCell className="text-right font-mono">{p.dagen}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatBedrag(p.hoofdsom)}</TableCell>
+                                        <TableCell className="text-right font-mono">{p.is_pauze ? <span className="text-orange-500">geschorst</span> : formatPercentage(p.rente_pct)}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatBedrag(p.rente)}</TableCell>
                                       </TableRow>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
+                                      {betalingOpEinddatum && toerekeningen.length > 0 && (() => {
+                                        const renteAfgelost = toerekeningen
+                                          .filter(t => t.type === 'rente')
+                                          .reduce((sum, t) => sum + (Number(t.bedrag) || 0), 0);
+                                        const resterendeRente = Math.max(0, subtotaalTotNu - renteAfgelost);
+                                        return (
+                                          <>
+                                            <TableRow className="bg-green-100 border-t border-green-300">
+                                              <TableCell className="font-mono text-green-700">
+                                                Subtotaal t/m {formatDatumTm(p.eind)}
+                                              </TableCell>
+                                              <TableCell className="text-right font-mono"></TableCell>
+                                              <TableCell className="text-right font-mono text-green-700">{formatBedrag(p.hoofdsom)}</TableCell>
+                                              <TableCell className="text-right font-mono"></TableCell>
+                                              <TableCell className="text-right font-mono font-semibold text-green-700">{formatBedrag(subtotaalTotNu)}</TableCell>
+                                            </TableRow>
+                                            <TableRow className="bg-green-100 border-green-300">
+                                              <TableCell colSpan={5} className="py-2">
+                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                  <span className="font-mono flex items-center gap-2 text-green-800">
+                                                    <span>💰</span>
+                                                    Betaling {betalingOpEinddatum.kenmerk || ''} op {formatDatum(betalingOpEinddatum.datum)}
+                                                  </span>
+                                                  <span className="font-mono flex flex-wrap gap-x-4 text-green-700">
+                                                    {toerekeningen.map((t, ti) => (
+                                                      <span key={ti} className="whitespace-nowrap">
+                                                        <span className="text-green-600">{t.type}:</span>{' '}
+                                                        <span className="font-semibold text-green-800">{formatBedrag(t.bedrag)}</span>
+                                                      </span>
+                                                    ))}
+                                                  </span>
+                                                </div>
+                                              </TableCell>
+                                            </TableRow>
+                                            {resterendeRente > 0 && (
+                                              <TableRow className="bg-green-50 border-green-200">
+                                                <TableCell className="font-mono text-green-600">
+                                                  Resterend na betaling
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono"></TableCell>
+                                                <TableCell className="text-right font-mono"></TableCell>
+                                                <TableCell className="text-right font-mono"></TableCell>
+                                                <TableCell className="text-right font-mono font-semibold text-green-600">{formatBedrag(resterendeRente)}</TableCell>
+                                              </TableRow>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </React.Fragment>
+                                  );
+                                });
+                              })()}
+                              {/* Totaal regel */}
+                              <TableRow className="bg-muted/50 border-t-2 font-semibold">
+                                <TableCell className="font-mono">Totaal</TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {v.periodes.reduce((sum, p) => sum + (p.dagen || 0), 0)}
+                                </TableCell>
+                                <TableCell className="text-right font-mono"></TableCell>
+                                <TableCell className="text-right font-mono"></TableCell>
+                                <TableCell className="text-right font-mono">{formatBedrag(v.totale_rente)}</TableCell>
+                              </TableRow>
                             </TableBody>
                           </Table>
                           </div>
@@ -1615,15 +1675,22 @@ export default function CaseDetailPage() {
                                     <TableCell className="text-right font-mono">{formatBedrag(p.rente)}</TableCell>
                                   </TableRow>
                                 ))}
+                                {/* Totaal regel */}
+                                <TableRow className="bg-amber-100/50 border-t-2 font-semibold">
+                                  <TableCell className="font-mono">Totaal</TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {v.periodes_kosten.reduce((sum, p) => sum + (p.dagen || 0), 0)}
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono"></TableCell>
+                                  <TableCell className="text-right font-mono"></TableCell>
+                                  <TableCell className="text-right font-mono">{formatBedrag(v.totale_rente_kosten || 0)}</TableCell>
+                                </TableRow>
                               </TableBody>
                             </Table>
                           </div>
-                          <div className="flex justify-between items-center mt-2 px-1 text-sm">
+                          <div className="flex items-center mt-2 px-1 text-sm">
                             <span className="text-muted-foreground">
                               <span className="text-amber-600">⏱</span> = kosten met afwijkende rentedatum
-                            </span>
-                            <span className="font-semibold font-mono">
-                              Totaal rente kosten: {formatBedrag(v.totale_rente_kosten || 0)}
                             </span>
                           </div>
                         </div>
