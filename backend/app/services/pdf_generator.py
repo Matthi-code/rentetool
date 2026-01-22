@@ -122,6 +122,26 @@ def format_datum(datum: Any, with_font: bool = False) -> str:
     return result
 
 
+def format_datum_tm(datum: Any) -> str:
+    """Format date minus one day for inclusive end dates (t/m display)."""
+    from datetime import timedelta
+    if datum is None:
+        return "-"
+    elif isinstance(datum, str):
+        if "T" in datum:
+            datum = datum.split("T")[0]
+        parts = datum.split("-")
+        if len(parts) == 3:
+            from datetime import date
+            d = date(int(parts[0]), int(parts[1]), int(parts[2]))
+            d = d - timedelta(days=1)
+            return d.strftime("%d-%m-%Y")
+        return datum
+    else:
+        d = datum - timedelta(days=1)
+        return d.strftime("%d-%m-%Y")
+
+
 def format_opslag(opslag: Any) -> str:
     """Format opslag percentage correctly (handle both decimal and percentage input)."""
     if not opslag:
@@ -533,7 +553,8 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, vord_
     mono_bold = ParagraphStyle('MonoBold', fontName='Courier-Bold', fontSize=7, alignment=TA_RIGHT)
     mono_primary = ParagraphStyle('MonoPrimary', fontName='Courier-Bold', fontSize=7, alignment=TA_RIGHT, textColor=PRIMARY_COLOR)
 
-    header = ["Vordering", "Startdatum", "Hoofdsom", "Kosten", "Rente", "Afg. HS", "Afg. Kst", "Afg. Rnt", "Openstaand"]
+    # Removed "Kosten" and "Afg. Kst" columns to match webapp
+    header = ["Vordering", "Startdatum", "Hoofdsom", "Rente", "Afg. HS", "Afg. Rnt", "Openstaand"]
     data = [header]
 
     for v in vorderingen:
@@ -547,10 +568,8 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, vord_
             kenmerk,
             Paragraph(startdatum, mono_date),
             Paragraph(format_bedrag(v.get("oorspronkelijk_bedrag", 0)), mono_style),
-            Paragraph(format_bedrag(v.get("kosten", 0)), mono_style),
             Paragraph(format_bedrag(v.get("totale_rente", 0)), mono_style),
             Paragraph(format_bedrag(v.get("afgelost_hoofdsom", 0)), mono_green),
-            Paragraph(format_bedrag(v.get("afgelost_kosten", 0)), mono_green),
             Paragraph(format_bedrag(v.get("afgelost_rente", 0)), mono_green),
             Paragraph(openstaand, mono_bold),
         ])
@@ -560,16 +579,14 @@ def _build_vordering_summary_table(vorderingen: List[Dict], totalen: Dict, vord_
         "Totaal",
         "",  # No startdatum for totaal row
         Paragraph(format_bedrag(totalen.get("oorspronkelijk", 0)), mono_bold),
-        Paragraph(format_bedrag(totalen.get("kosten", 0)), mono_bold),
         Paragraph(format_bedrag(totalen.get("rente", 0)), mono_bold),
         Paragraph(format_bedrag(totalen.get("afgelost_hoofdsom", 0)), mono_green),
-        Paragraph(format_bedrag(totalen.get("afgelost_kosten", 0)), mono_green),
         Paragraph(format_bedrag(totalen.get("afgelost_rente", 0)), mono_green),
         Paragraph(format_bedrag(totalen.get("openstaand", 0)), mono_primary),
     ])
 
-    # Full width: 18cm - adjusted for new column
-    col_widths = [2.5*cm, 2*cm, 2*cm, 1.6*cm, 2.2*cm, 1.9*cm, 1.9*cm, 1.9*cm, 2*cm]
+    # Full width: 18cm - adjusted for 7 columns (removed Kosten and Afg. Kst)
+    col_widths = [3*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm]
     table = Table(data, colWidths=col_widths)
 
     style = TableStyle([
@@ -648,7 +665,7 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
         row_types = []
 
         for p in periodes:
-            periode_str = f"{format_datum(p.get('start', ''))} - {format_datum(p.get('eind', ''))}"
+            periode_str = f"{format_datum(p.get('start', ''))} t/m {format_datum_tm(p.get('eind', ''))}"
             is_kap = p.get("is_kapitalisatie")
 
             # Icon cell - use Image for kapitalisatie (12x12 for clarity)

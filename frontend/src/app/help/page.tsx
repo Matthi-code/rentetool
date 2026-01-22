@@ -32,7 +32,7 @@ export default function HelpPage() {
             <li><strong>Art. 6:119a BW</strong> — Handelsrente (B2B transacties)</li>
             <li><strong>Art. 6:119 lid 2 BW</strong> — Samengestelde rente (kapitalisatie op verjaardag)</li>
             <li><strong>Art. 6:43 BW</strong> — Toerekening op meest bezwarende vordering</li>
-            <li><strong>Art. 6:44 BW</strong> — Volgorde binnen vordering: kosten → rente → hoofdsom</li>
+            <li><strong>Art. 6:44 BW</strong> — Volgorde binnen vordering: rente → kosten → hoofdsom</li>
           </ul>
         </CardContent>
       </Card>
@@ -94,26 +94,103 @@ export default function HelpPage() {
         </CardContent>
       </Card>
 
-      {/* Strategieën */}
+      {/* Strategie */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="font-serif">Betalingsstrategieën</CardTitle>
+          <CardTitle className="font-serif">Betalingsstrategie</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="p-4 bg-muted/30 rounded-lg">
-              <h3 className="font-semibold mb-2">Strategie A: Meest Bezwarend</h3>
-              <p className="text-sm text-muted-foreground">
-                Betalingen worden eerst toegerekend aan de vordering met het hoogste rentepercentage.
-                Bij gelijk percentage geldt de oudste vordering eerst. Dit is de wettelijke default conform art. 6:43 BW.
-              </p>
+        <CardContent>
+          <div className="p-4 bg-muted/30 rounded-lg">
+            <h3 className="font-semibold mb-2">Strategie: Meest Bezwarend</h3>
+            <p className="text-sm text-muted-foreground">
+              Betalingen worden eerst toegerekend aan de vordering met het hoogste rentepercentage.
+              Bij gelijk percentage geldt de oudste vordering eerst. Dit is de wettelijke default conform art. 6:43 BW.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Renteberekening schema */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="font-serif">Hoe wordt rente berekend?</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <h3 className="font-semibold mb-3">Basisformule</h3>
+            <div className="p-4 bg-muted/30 rounded-lg font-mono text-center">
+              Rente = Hoofdsom × Rentepercentage × (Dagen / 365)
             </div>
-            <div className="p-4 bg-muted/30 rounded-lg">
-              <h3 className="font-semibold mb-2">Strategie B: Oudste Eerst</h3>
-              <p className="text-sm text-muted-foreground">
-                Betalingen worden toegerekend op volgorde van startdatum, oudste vordering eerst.
-              </p>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-3">Periodes worden gesplitst op:</h3>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              <li>Rentewijzigingen</li>
+              <li>Verjaardagen (bij samengestelde rente → kapitalisatie)</li>
+              <li>Betalingsdata</li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-3">Kosten met aparte rentedatum</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Wanneer kosten (bijv. proceskosten) een latere rentedatum hebben dan de vordering,
+              worden de renteberekeningen apart uitgevoerd:
+            </p>
+
+            <div className="relative border rounded-lg p-4 bg-muted/10">
+              {/* Tijdlijn */}
+              <div className="mb-6">
+                <div className="text-xs font-semibold text-muted-foreground mb-2">TIJDLIJN</div>
+                <div className="relative h-2 bg-muted rounded-full">
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full" title="Start vordering"></div>
+                  <div className="absolute left-1/4 top-1/2 -translate-y-1/2 w-3 h-3 bg-amber-500 rounded-full" title="Start kosten"></div>
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-green-500 rounded-full" title="Einddatum"></div>
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span>01-01-2024<br/><span className="text-primary">Vordering</span></span>
+                  <span className="text-center">15-01-2024<br/><span className="text-amber-600">Kosten ⏱</span></span>
+                  <span className="text-right">01-07-2024<br/><span className="text-green-600">Einddatum</span></span>
+                </div>
+              </div>
+
+              {/* Twee parallelle berekeningen */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                  <div className="font-semibold text-primary text-sm mb-2">Rente op Hoofdsom</div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span>01-01 t/m 30-06</span>
+                      <span className="font-mono">181 dagen</span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      €10.000 × 4% × 181/365 = <span className="font-mono">€198,36</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="font-semibold text-amber-700 text-sm mb-2">Rente op Kosten ⏱</div>
+                  <div className="text-xs space-y-1">
+                    <div className="flex justify-between">
+                      <span>15-01 t/m 30-06</span>
+                      <span className="font-mono">167 dagen</span>
+                    </div>
+                    <div className="text-muted-foreground">
+                      €1.500 × 4% × 167/365 = <span className="font-mono">€27,45</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-3">Evenredige verdeling</h3>
+            <p className="text-sm text-muted-foreground">
+              Bij meerdere vorderingen met <strong>exact dezelfde rente%</strong> én <strong>dezelfde startdatum</strong>
+              wordt een betaling evenredig verdeeld over deze vorderingen.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -141,7 +218,7 @@ export default function HelpPage() {
               <div className="font-semibold mb-2">Stap 1: Welke vordering eerst?</div>
               <div className="text-sm text-muted-foreground">
                 Aangewezen? → Die vordering(en) eerst<br />
-                Niet aangewezen? → Volgens strategie (A of B)
+                Niet aangewezen? → Volgens strategie (meest bezwarend)
               </div>
             </div>
 
@@ -151,12 +228,14 @@ export default function HelpPage() {
 
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
               <div className="font-semibold mb-2">Stap 2: Binnen vordering (Art. 6:44 BW)</div>
-              <div className="flex justify-center gap-4 text-sm">
-                <span className="px-3 py-1 bg-white rounded border">1. KOSTEN</span>
+              <div className="flex flex-wrap justify-center gap-2 text-sm">
+                <span className="px-3 py-1 bg-white rounded border">1. RENTE KOSTEN</span>
                 <span className="text-xl">→</span>
-                <span className="px-3 py-1 bg-white rounded border">2. RENTE</span>
+                <span className="px-3 py-1 bg-white rounded border">2. KOSTEN</span>
                 <span className="text-xl">→</span>
-                <span className="px-3 py-1 bg-white rounded border">3. HOOFDSOM</span>
+                <span className="px-3 py-1 bg-white rounded border">3. RENTE HOOFDSOM</span>
+                <span className="text-xl">→</span>
+                <span className="px-3 py-1 bg-white rounded border">4. HOOFDSOM</span>
               </div>
             </div>
 
@@ -186,11 +265,12 @@ export default function HelpPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="p-4 border-l-4 border-primary bg-primary/5 rounded-r-lg">
-            <h3 className="font-semibold mb-1">Proceskosten als aparte vordering</h3>
+            <h3 className="font-semibold mb-1">Proceskosten met eigen rentedatum</h3>
             <p className="text-sm text-muted-foreground">
-              Proceskosten met een eigen ingangsdatum (bijv. 14 dagen na betekening vonnis)
-              kunt u het beste toevoegen als aparte vordering. Zo krijgen de proceskosten
-              hun eigen rentedatum en -berekening.
+              Proceskosten (bijv. 14 dagen na vonnis) kunt u bij de vordering invoeren
+              met een aparte rentedatum. Vul bij &apos;Kosten&apos; het bedrag in en bij
+              &apos;Rente vanaf&apos; de datum waarop de rente op de kosten ingaat.
+              Het ⏱ symbool geeft aan dat kosten een afwijkende rentedatum hebben.
             </p>
           </div>
 
@@ -198,7 +278,7 @@ export default function HelpPage() {
             <h3 className="font-semibold mb-1">Aanwijzen van betalingen</h3>
             <p className="text-sm text-muted-foreground">
               Bij het invoeren van een deelbetaling kunt u deze aanwijzen aan specifieke
-              vorderingen. Als u niets aanwijst, wordt de gekozen strategie (A of B) toegepast.
+              vorderingen. Als u niets aanwijst, wordt de strategie &apos;meest bezwarend&apos; toegepast.
               Een restant na volledige aflossing van aangewezen vorderingen stroomt automatisch
               door naar overige vorderingen.
             </p>
@@ -216,9 +296,9 @@ export default function HelpPage() {
           <div className="p-4 border-l-4 border-amber-500 bg-amber-50 rounded-r-lg">
             <h3 className="font-semibold mb-1">Rentewijzigingen</h3>
             <p className="text-sm text-muted-foreground">
-              De wettelijke rente wijzigt halfjaarlijks (1 januari en 1 juli).
-              De Rentetool splitst renteperiodes automatisch op deze wijzigingsdata
-              en past het correcte percentage toe per periode.
+              Wanneer het wettelijke rentepercentage wijzigt, splitst de Rentetool
+              de renteperiodes automatisch op de wijzigingsdata en past het correcte
+              percentage toe per periode.
             </p>
           </div>
         </CardContent>
@@ -238,21 +318,21 @@ export default function HelpPage() {
           <div className="bg-muted/30 p-4 rounded-lg">
             <h4 className="font-semibold mb-2">Invoer:</h4>
             <ul className="text-sm space-y-1">
-              <li>• Vordering 1: €10.000, startdatum 01-01-2024, Wettelijke rente</li>
-              <li>• Vordering 2 (proceskosten): €1.500, startdatum 15-01-2024, Wettelijke rente</li>
+              <li>• Vordering: €10.000, startdatum 01-01-2024, Wettelijke rente</li>
+              <li>• Kosten: €1.500, rentedatum 15-01-2024 ⏱</li>
             </ul>
           </div>
 
           <div className="bg-muted/30 p-4 rounded-lg">
-            <h4 className="font-semibold mb-2">Betaling €5.000 op 01-07-2024 (strategie A):</h4>
+            <h4 className="font-semibold mb-2">Betaling €2.000 op 01-07-2024:</h4>
             <p className="text-sm text-muted-foreground mb-2">
-              Beide vorderingen hebben hetzelfde rentepercentage, dus oudste eerst:
+              Volgorde conform art. 6:44 BW:
             </p>
             <ol className="text-sm space-y-1 list-decimal list-inside">
-              <li>Vordering 1: rente (±€350) aflossen</li>
-              <li>Vordering 1: hoofdsom (±€4.650) aflossen</li>
-              <li>Vordering 1 openstaand: ±€5.350</li>
-              <li>Vordering 2 ongewijzigd: €1.500 + rente</li>
+              <li>Rente op kosten: ±€27 aflossen</li>
+              <li>Kosten: €1.500 aflossen</li>
+              <li>Rente op hoofdsom: ±€198 aflossen</li>
+              <li>Hoofdsom: ±€275 aflossen (rest van €2.000)</li>
             </ol>
           </div>
         </CardContent>

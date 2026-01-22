@@ -1,5 +1,22 @@
 # Progress Log
 
+## 2026-01-22 — Checkpoint (01:00)
+
+**Gedaan deze sessie:**
+- Help pagina aangepast:
+  - Strategie B verwijderd (alleen strategie "Meest Bezwarend" over)
+  - "A" weggehaald uit strategie naam
+  - "1 januari en 1 juli" vervangen door "rentewijzigingen"
+- PDF generator aangepast:
+  - "Kosten" en "Afg. Kst" kolommen verwijderd uit overzichtstabel
+  - Datum formaat gewijzigd naar "van t/m" (inclusieve einddatum)
+  - `format_datum_tm()` functie toegevoegd
+
+**Huidige staat:**
+- Frontend en backend wijzigingen klaar voor deploy
+
+---
+
 ## 2026-01-22 — Checkpoint (00:30)
 
 **Gedaan deze sessie:**
