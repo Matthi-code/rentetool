@@ -50,7 +50,7 @@ import {
   logUsage,
   leaveSharedCase,
 } from '@/lib/api';
-import { formatBedrag, formatBedragParts, formatDatum, formatPercentage, getToday } from '@/lib/format';
+import { formatBedrag, formatBedragParts, formatDatum, formatDatumTm, formatPercentage, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import { ShareCaseDialog } from '@/components/share-case-dialog';
 import { SharedBadge } from '@/components/shared-badge';
@@ -1443,7 +1443,7 @@ export default function CaseDetailPage() {
                       >
                         {v.item_type === 'kosten' ? 'K' : 'V'}
                       </Badge>
-                      <span className="font-medium font-mono w-28 shrink-0">
+                      <span className="font-medium font-mono min-w-28 max-w-48 truncate shrink-0" title={v.kenmerk}>
                         {v.kenmerk}
                         {v.pauze_start && v.pauze_eind && (
                           <span className="ml-1 text-orange-500">⏸</span>
@@ -1541,7 +1541,7 @@ export default function CaseDetailPage() {
                                   <React.Fragment key={i}>
                                     <TableRow className={p.is_pauze ? 'bg-orange-50' : p.is_kapitalisatie ? 'bg-blue-50' : ''}>
                                       <TableCell className="font-mono">
-                                        {formatDatum(p.start)} - {formatDatum(p.eind)}
+                                        {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
                                         {p.is_pauze && <span className="ml-1 text-orange-500 font-medium">⏸</span>}
                                         {p.is_kapitalisatie && <span className="ml-1 text-blue-600 font-medium">↻</span>}
                                       </TableCell>
@@ -1606,7 +1606,7 @@ export default function CaseDetailPage() {
                                 {v.periodes_kosten.map((p, i) => (
                                   <TableRow key={i} className={p.is_pauze ? 'bg-orange-50' : ''}>
                                     <TableCell className="font-mono">
-                                      {formatDatum(p.start)} - {formatDatum(p.eind)}
+                                      {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
                                       {p.is_pauze && <span className="ml-1 text-orange-500 font-medium">⏸</span>}
                                     </TableCell>
                                     <TableCell className="text-right font-mono">{p.dagen}</TableCell>
