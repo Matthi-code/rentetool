@@ -57,7 +57,6 @@ import { SharedBadge } from '@/components/shared-badge';
 import {
   RENTETYPE_LABELS,
   RENTETYPE_SHORT,
-  STRATEGIE_LABELS,
   type ItemType,
   type CaseWithLines,
   type Vordering,
@@ -434,21 +433,6 @@ export default function CaseDetailPage() {
     }
   }
 
-  async function handleUpdateStrategie(strategie: 'A' | 'B') {
-    if (!caseData) return;
-    try {
-      await updateCase(caseId, {
-        naam: caseData.naam,
-        klant_referentie: caseData.klant_referentie,
-        einddatum: caseData.einddatum,
-        strategie,
-      });
-      setCaseData({ ...caseData, strategie });
-      setResult(null);
-    } catch (err) {
-      console.error(err);
-    }
-  }
 
   // Open dialog for adding new vordering
   function openAddVordering() {
