@@ -1,8 +1,8 @@
 # Progress Log
 
-## 2026-01-22 — Checkpoint (13:00)
+## 2026-01-22 — Sessie (15:00)
 
-**Gedaan deze sessie:**
+**Gedaan:**
 - Specificatie per vordering verbeterd:
   - Subtotaal regel toegevoegd vóór betaling (cumulatieve rente tot dat punt)
   - Resterende rente na betaling wordt getoond als niet alles is afgelost
@@ -11,18 +11,25 @@
 - Help pagina uitgebreid:
   - Uitleg evenredige/proportionele verdeling met concreet voorbeeld
   - Verduidelijkt waarom niet alle rente van één vordering wordt afgelost bij meerdere vorderingen
-- Cleanup:
-  - Oude screenshots verwijderd uit images/
-  - Supabase migrations toegevoegd (005, 006)
+- Build fix: ongebruikte variabelen verwijderd (STRATEGIE_LABELS, handleUpdateStrategie)
+- Vercel deploy geforceerd (--force) na eerdere build errors
+- Cleanup: oude screenshots verwijderd, migrations toegevoegd
 
 **Commits:**
 - `21f9679` Add subtotaal and totaal rows to specification tables
 - `cced981` Cleanup and add migrations
+- `79fef21` Fix: remove unused STRATEGIE_LABELS and handleUpdateStrategie
 
 **Huidige staat:**
-- Gepusht naar GitHub, auto-deploy naar Vercel en Fly.io
+- Productie live op https://rentetool1.jmtest.nl
+- Backend live op https://rentetool-api.fly.dev
+
+**Known issue:**
+- Chrome heeft soms problemen met login/backend (cache?), Brave en Firefox werken wel
 
 **Volgende stap:**
+- Chrome login/backend probleem onderzoeken
+- Dependencies updaten (ESLint 9, etc.) - voorzichtig, major versions
 - RBAC/Sharing feature implementeren
 
 ---
