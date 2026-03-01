@@ -173,9 +173,12 @@ export default function LoginPage() {
 
   return (
     <div className="container py-8 max-w-md mx-auto px-4">
-      {/* Decorative goose */}
-      <div className="flex justify-center mb-6">
-        <Image src="/gans.png" alt="Rentetool" width={120} height={120} className="opacity-80" />
+      {/* Decorative goose with connecting line */}
+      <div className="flex justify-end pr-12 mb-0">
+        <Image src="/gans.png" alt="Rentetool" width={100} height={100} className="opacity-80" />
+      </div>
+      <div className="flex justify-end pr-[4.2rem]">
+        <div className="w-px h-6 bg-border" />
       </div>
 
       <Card>
