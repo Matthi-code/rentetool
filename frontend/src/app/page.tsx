@@ -127,7 +127,9 @@ export default function Dashboard() {
   }, [fontSize, fontSizeLoaded]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    // Don't redirect if there's an auth hash (magic link / recovery) — wait for Supabase to process it
+    const hasAuthHash = typeof window !== 'undefined' && window.location.hash.includes('access_token');
+    if (!authLoading && !user && !hasAuthHash) {
       router.push('/login');
       return;
     }
