@@ -178,59 +178,6 @@ export default function LoginPage() {
         <Image src="/gans.png" alt="Rentetool" width={120} height={120} className="opacity-80" />
       </div>
 
-      {/* Gratis uitproberen card */}
-      {showFreeTrialCard && (
-        <Card className="mb-4 border-primary/30 bg-primary/5">
-          <CardContent className="pt-6 pb-4">
-            <div className="text-center space-y-3">
-              <h2 className="font-serif text-xl font-semibold">Gratis uitproberen</h2>
-              <p className="text-sm text-muted-foreground">
-                Bereken direct wettelijke rente — geen wachtwoord nodig
-              </p>
-              <form onSubmit={handleFreeTrial} className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="uw@email.nl"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  className="flex-1"
-                />
-                <Button type="submit" disabled={freeTrialSubmitting || !email}>
-                  {freeTrialSubmitting ? 'Even geduld...' : 'Start gratis'}
-                </Button>
-              </form>
-              {freeTrialMessage && (
-                <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md">
-                  {freeTrialMessage}
-                </div>
-              )}
-              {freeTrialError && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                  {freeTrialError}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                U ontvangt een link per e-mail om direct te starten
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Separator */}
-      {showFreeTrialCard && (
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">of</span>
-          </div>
-        </div>
-      )}
-
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
@@ -421,6 +368,50 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Gratis uitproberen */}
+      {showFreeTrialCard && (
+        <>
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">of</span>
+            </div>
+          </div>
+          <div className="text-center space-y-2">
+            <p className="text-sm font-medium">Gratis uitproberen</p>
+            <form onSubmit={handleFreeTrial} className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="uw@email.nl"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="flex-1 h-9 text-sm"
+              />
+              <Button type="submit" variant="outline" size="sm" disabled={freeTrialSubmitting || !email}>
+                {freeTrialSubmitting ? 'Even geduld...' : 'Start gratis'}
+              </Button>
+            </form>
+            {freeTrialMessage && (
+              <div className="p-2 text-sm text-green-700 bg-green-50 rounded-md">
+                {freeTrialMessage}
+              </div>
+            )}
+            {freeTrialError && (
+              <div className="p-2 text-sm text-destructive bg-destructive/10 rounded-md">
+                {freeTrialError}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Ontvang een login link per e-mail — geen wachtwoord nodig
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
