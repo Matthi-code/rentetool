@@ -30,6 +30,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [freeTrialSubmitting, setFreeTrialSubmitting] = useState(false);
+  const [freeTrialMessage, setFreeTrialMessage] = useState<string | null>(null);
+  const [freeTrialError, setFreeTrialError] = useState<string | null>(null);
 
   // Check for password reset token or errors in URL
   useEffect(() => {
@@ -149,12 +152,85 @@ export default function LoginPage() {
     );
   }
 
+  const showFreeTrialCard = isLogin && !isSetNewPassword && !isResetPassword && !isMagicLink;
+
+  const handleFreeTrial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFreeTrialError(null);
+    setFreeTrialMessage(null);
+    setFreeTrialSubmitting(true);
+    try {
+      const { error } = await signInWithMagicLink(email);
+      if (error) {
+        setFreeTrialError(error.message);
+      } else {
+        setFreeTrialMessage('Link verzonden! Controleer uw inbox.');
+      }
+    } finally {
+      setFreeTrialSubmitting(false);
+    }
+  };
+
   return (
     <div className="container py-8 max-w-md mx-auto px-4">
       {/* Decorative goose */}
       <div className="flex justify-center mb-6">
         <Image src="/gans.png" alt="Rentetool" width={120} height={120} className="opacity-80" />
       </div>
+
+      {/* Gratis uitproberen card */}
+      {showFreeTrialCard && (
+        <Card className="mb-4 border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 pb-4">
+            <div className="text-center space-y-3">
+              <h2 className="font-serif text-xl font-semibold">Gratis uitproberen</h2>
+              <p className="text-sm text-muted-foreground">
+                Bereken direct wettelijke rente — geen wachtwoord nodig
+              </p>
+              <form onSubmit={handleFreeTrial} className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="uw@email.nl"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={freeTrialSubmitting || !email}>
+                  {freeTrialSubmitting ? 'Even geduld...' : 'Start gratis'}
+                </Button>
+              </form>
+              {freeTrialMessage && (
+                <div className="p-3 text-sm text-green-700 bg-green-50 rounded-md">
+                  {freeTrialMessage}
+                </div>
+              )}
+              {freeTrialError && (
+                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                  {freeTrialError}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                U ontvangt een link per e-mail om direct te starten
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Separator */}
+      {showFreeTrialCard && (
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">of</span>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
@@ -176,12 +252,12 @@ export default function LoginPage() {
               : isMagicLink
               ? 'Ontvang een login link in uw inbox — geen wachtwoord nodig'
               : isLogin
-              ? 'Log in om uw renteberekeningen te beheren'
+              ? 'Log in met uw account'
               : 'Maak een account aan om te beginnen'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form id="magic-link-form" onSubmit={handleSubmit} className="space-y-4">
             {!isSetNewPassword && (
               <div className="space-y-2">
                 <Label htmlFor="email">E-mailadres</Label>
