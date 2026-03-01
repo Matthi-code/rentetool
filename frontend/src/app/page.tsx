@@ -312,7 +312,9 @@ export default function Dashboard() {
             )}
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {cases.length === 0
+            {isFree
+              ? 'Probeer de rentetool gratis uit'
+              : cases.length === 0
               ? 'Maak uw eerste renteberekening aan'
               : `${cases.length} ${cases.length === 1 ? 'zaak' : 'zaken'} in beheer`}
           </p>
@@ -462,17 +464,19 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {cases.length === 0 ? (
+      {cases.length === 0 || isFree ? (
         <Card className="border-dashed border-2">
           <CardContent className="py-16 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
               <span className="text-3xl text-primary">+</span>
             </div>
             <h3 className="font-serif text-xl font-semibold text-primary mb-2">
-              Nog geen zaken
+              {isFree ? 'Nieuwe berekening' : 'Nog geen zaken'}
             </h3>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Begin met het aanmaken van uw eerste zaak om wettelijke rente te berekenen.
+              {isFree
+                ? 'Maak een renteberekening aan om de tool gratis uit te proberen.'
+                : 'Begin met het aanmaken van uw eerste zaak om wettelijke rente te berekenen.'}
             </p>
             <Button size="lg" onClick={() => setDialogOpen(true)}>
               <span className="mr-2 text-lg">+</span> Nieuwe Zaak Aanmaken
