@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -8,7 +8,12 @@ export function createClient() {
     throw new Error('Supabase not configured - running in demo mode');
   }
 
-  return createBrowserClient(url, key);
+  return createSupabaseClient(url, key, {
+    auth: {
+      detectSessionInUrl: true,
+      flowType: 'implicit',
+    },
+  });
 }
 
 export function isSupabaseConfigured(): boolean {
