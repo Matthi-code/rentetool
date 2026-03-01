@@ -42,7 +42,7 @@ export default function LoginPage() {
 
       // Check for recovery token in hash (multiple formats)
       if (hash) {
-        if (hash.includes('type=recovery') || hash.includes('type=magiclink')) {
+        if (hash.includes('type=recovery')) {
           setIsSetNewPassword(true);
         }
         // Also check hash params
