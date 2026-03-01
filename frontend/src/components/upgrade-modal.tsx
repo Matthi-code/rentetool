@@ -41,6 +41,10 @@ const FEATURE_INFO: Record<string, { title: string; description: string }> = {
     title: 'Meer Deelbetalingen',
     description: 'Voeg onbeperkt deelbetalingen toe. In de gratis versie is het maximum 1.',
   },
+  pauze: {
+    title: 'Schorsing / Uitstel van Betaling',
+    description: 'Pauzeer de renteberekening voor een periode, bijvoorbeeld bij uitstel van betaling of schorsing.',
+  },
 };
 
 const PRO_FEATURES = [
@@ -49,6 +53,7 @@ const PRO_FEATURES = [
   'Professionele PDF zonder watermerk',
   'Snapshots en berekening-historie',
   'Zaken delen met collega\'s',
+  'Schorsing / uitstel van betaling',
 ];
 
 export function UpgradeModal({ open, onClose, feature }: UpgradeModalProps) {

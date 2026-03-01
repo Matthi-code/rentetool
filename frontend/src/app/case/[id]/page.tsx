@@ -95,7 +95,7 @@ export default function CaseDetailPage() {
   const { user, loading: authLoading } = useAuth();
   const caseId = params.id as string;
 
-  const { isFree, maxVorderingen, maxDeelbetalingen, kanSnapshots, kanSharing } = useSubscription();
+  const { isFree, maxVorderingen, maxDeelbetalingen, kanSnapshots, kanSharing, kanPauze } = useSubscription();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState('');
 
@@ -1856,11 +1856,18 @@ export default function CaseDetailPage() {
                 </SelectContent>
               </Select>
             </div>
-            {/* Pauze sectie - Collapsible */}
+            {/* Pauze sectie - Collapsible (Pro only) */}
             <div className="border rounded-lg overflow-hidden">
               <button
                 type="button"
-                onClick={() => setPauzeExpanded(!pauzeExpanded)}
+                onClick={() => {
+                  if (!kanPauze) {
+                    setUpgradeFeature('pauze');
+                    setUpgradeModalOpen(true);
+                    return;
+                  }
+                  setPauzeExpanded(!pauzeExpanded);
+                }}
                 className={`w-full px-4 py-3 flex items-center justify-between text-left transition-colors ${
                   vorderingForm.pauze_start || vorderingForm.pauze_eind
                     ? 'bg-orange-50 hover:bg-orange-100/70'
@@ -1870,6 +1877,7 @@ export default function CaseDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className={`text-base ${vorderingForm.pauze_start || vorderingForm.pauze_eind ? 'text-orange-500' : 'text-muted-foreground'}`}>⏸</span>
                   <span className="text-sm font-medium">Schorsing / Uitstel van betaling</span>
+                  {!kanPauze && <ProBadge />}
                   {!pauzeExpanded && vorderingForm.pauze_start && vorderingForm.pauze_eind && (
                     <span className="text-xs text-orange-600 ml-2 font-mono">
                       {formatDatum(vorderingForm.pauze_start)} - {formatDatum(vorderingForm.pauze_eind)}
@@ -1880,7 +1888,7 @@ export default function CaseDetailPage() {
                   ▼
                 </span>
               </button>
-              {pauzeExpanded && (
+              {pauzeExpanded && kanPauze && (
                 <div className="p-4 bg-orange-50/30 border-t">
                   <div className="grid grid-cols-2 gap-4">
                     <div>

@@ -331,6 +331,7 @@ export async function getMyTier(): Promise<SubscriptionTier> {
       mag_pdf_schoon: false,
       mag_snapshots: false,
       mag_sharing: false,
+      mag_pauze: false,
     };
   }
 }

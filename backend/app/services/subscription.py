@@ -18,6 +18,7 @@ DEFAULT_FREE_TIER = SubscriptionTier(
     mag_pdf_schoon=False,
     mag_snapshots=False,
     mag_sharing=False,
+    mag_pauze=False,
     prijs_per_maand=0,
 )
 
@@ -51,6 +52,7 @@ def get_user_tier(user_id: str, db) -> SubscriptionTier:
             mag_pdf_schoon=True,
             mag_snapshots=True,
             mag_sharing=True,
+            mag_pauze=True,
         )
 
     if not _subscription_tables_exist(db):
@@ -94,6 +96,7 @@ def get_user_tier_response(user_id: str, db) -> UserTierResponse:
         mag_pdf_schoon=tier.mag_pdf_schoon,
         mag_snapshots=tier.mag_snapshots,
         mag_sharing=tier.mag_sharing,
+        mag_pauze=tier.mag_pauze,
     )
 
 
@@ -151,6 +154,7 @@ def check_feature(user_id: str, feature: str, db) -> Optional[str]:
         'pdf_schoon': (tier.mag_pdf_schoon, "PDF zonder watermerk"),
         'snapshots': (tier.mag_snapshots, "Snapshots opslaan"),
         'sharing': (tier.mag_sharing, "Zaken delen"),
+        'pauze': (tier.mag_pauze, "Schorsing / uitstel van betaling"),
     }
 
     if feature not in feature_map:

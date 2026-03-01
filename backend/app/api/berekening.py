@@ -229,6 +229,7 @@ async def bereken_rente_pdf(request: BerekeningRequest, user_id: str = Depends(g
         },
         'vorderingen': [
             {
+                'item_type': getattr(v, 'item_type', 'vordering'),
                 'kenmerk': v.kenmerk,
                 'bedrag': str(v.bedrag),
                 'datum': str(v.datum),
@@ -236,6 +237,8 @@ async def bereken_rente_pdf(request: BerekeningRequest, user_id: str = Depends(g
                 'kosten': str(v.kosten or 0),
                 'opslag': str(v.opslag) if v.opslag else None,
                 'opslag_ingangsdatum': str(v.opslag_ingangsdatum) if v.opslag_ingangsdatum else None,
+                'pauze_start': str(v.pauze_start) if v.pauze_start else None,
+                'pauze_eind': str(v.pauze_eind) if v.pauze_eind else None,
             }
             for v in request.vorderingen
         ],
@@ -253,12 +256,17 @@ async def bereken_rente_pdf(request: BerekeningRequest, user_id: str = Depends(g
     resultaat = result.model_dump(mode='json')
     now = datetime.now()
 
-    pdf_bytes = generate_pdf(
-        invoer=invoer,
-        resultaat=resultaat,
-        snapshot_created=now,
-        watermark=watermark,
-    )
+    try:
+        pdf_bytes = generate_pdf(
+            invoer=invoer,
+            resultaat=resultaat,
+            snapshot_created=now,
+            watermark=watermark,
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PDF generatie mislukt: {str(e)}")
 
     filename = f"renteberekening_{now.strftime('%Y%m%d_%H%M')}.pdf"
 

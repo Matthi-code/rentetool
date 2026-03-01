@@ -17,6 +17,7 @@ class SubscriptionTier(BaseModel):
     mag_pdf_schoon: bool = False
     mag_snapshots: bool = False
     mag_sharing: bool = False
+    mag_pauze: bool = False
     prijs_per_maand: Optional[Decimal] = None
     actief: bool = True
 
@@ -30,6 +31,7 @@ class SubscriptionTierUpdate(BaseModel):
     mag_pdf_schoon: Optional[bool] = None
     mag_snapshots: Optional[bool] = None
     mag_sharing: Optional[bool] = None
+    mag_pauze: Optional[bool] = None
     prijs_per_maand: Optional[Decimal] = None
     actief: Optional[bool] = None
 
@@ -64,3 +66,4 @@ class UserTierResponse(BaseModel):
     mag_pdf_schoon: bool = False
     mag_snapshots: bool = False
     mag_sharing: bool = False
+    mag_pauze: bool = False

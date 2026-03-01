@@ -204,6 +204,7 @@ export interface SubscriptionTier {
   mag_pdf_schoon: boolean;
   mag_snapshots: boolean;
   mag_sharing: boolean;
+  mag_pauze: boolean;
 }
 
 // UI Types

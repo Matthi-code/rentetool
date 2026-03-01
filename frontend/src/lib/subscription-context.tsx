@@ -14,6 +14,7 @@ const DEFAULT_FREE_TIER: SubscriptionTier = {
   mag_pdf_schoon: false,
   mag_snapshots: false,
   mag_sharing: false,
+  mag_pauze: false,
 };
 
 interface SubscriptionContextType {
@@ -26,6 +27,7 @@ interface SubscriptionContextType {
   kanSchonePdf: boolean;
   kanSnapshots: boolean;
   kanSharing: boolean;
+  kanPauze: boolean;
   maxVorderingen: number | null;
   maxDeelbetalingen: number | null;
   // Refresh tier info
@@ -57,6 +59,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         mag_pdf_schoon: true,
         mag_snapshots: true,
         mag_sharing: true,
+        mag_pauze: true,
       });
       setLoading(false);
       return;
@@ -86,6 +89,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     kanSchonePdf: tier.mag_pdf_schoon,
     kanSnapshots: tier.mag_snapshots,
     kanSharing: tier.mag_sharing,
+    kanPauze: tier.mag_pauze,
     maxVorderingen: tier.max_vorderingen,
     maxDeelbetalingen: tier.max_deelbetalingen,
     refresh: loadTier,
