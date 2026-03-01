@@ -172,15 +172,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="container py-8 max-w-md mx-auto px-4">
-      {/* Decorative goose with connecting line */}
-      <div className="flex justify-end pr-12 mb-0">
-        <Image src="/gans.png" alt="Rentetool" width={100} height={100} className="opacity-80" />
-      </div>
-      <div className="flex justify-end pr-[4.2rem]">
-        <div className="w-px h-6 bg-border" />
-      </div>
-
+    <div className="container py-8 max-w-lg mx-auto px-4">
+      {/* Login card with goose */}
+      <div className="flex items-start gap-4">
+        <div className="flex-1">
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
@@ -371,6 +366,12 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
+        </div>
+        {/* Decorative goose */}
+        <div className="hidden sm:flex items-start pt-8 flex-shrink-0">
+          <Image src="/gans.png" alt="Rentetool" width={90} height={90} className="opacity-70" />
+        </div>
+      </div>
 
       {/* Gratis uitproberen */}
       {showFreeTrialCard && (
@@ -383,8 +384,8 @@ export default function LoginPage() {
               <span className="bg-background px-2 text-muted-foreground">of</span>
             </div>
           </div>
-          <div className="text-center space-y-2">
-            <p className="text-sm font-medium">Gratis uitproberen</p>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center space-y-2">
+            <p className="text-sm font-semibold text-emerald-800">Gratis uitproberen</p>
             <form onSubmit={handleFreeTrial} className="flex gap-2">
               <Input
                 type="email"
@@ -393,14 +394,14 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="flex-1 h-9 text-sm"
+                className="flex-1 h-9 text-sm bg-white"
               />
-              <Button type="submit" variant="outline" size="sm" disabled={freeTrialSubmitting || !email}>
+              <Button type="submit" size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={freeTrialSubmitting || !email}>
                 {freeTrialSubmitting ? 'Even geduld...' : 'Start gratis'}
               </Button>
             </form>
             {freeTrialMessage && (
-              <div className="p-2 text-sm text-green-700 bg-green-50 rounded-md">
+              <div className="p-2 text-sm text-green-700 bg-green-100 rounded-md">
                 {freeTrialMessage}
               </div>
             )}
@@ -409,7 +410,7 @@ export default function LoginPage() {
                 {freeTrialError}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-emerald-600">
               Ontvang een login link per e-mail — geen wachtwoord nodig
             </p>
           </div>
