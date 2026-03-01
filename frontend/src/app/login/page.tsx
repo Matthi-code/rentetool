@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import Image from 'next/image';
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -172,10 +172,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="container py-8 max-w-lg mx-auto px-4">
-      {/* Login card with goose */}
-      <div className="flex items-start gap-4">
-        <div className="flex-1">
+    <div className="container py-8 max-w-md mx-auto px-4">
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="font-serif text-2xl">
@@ -366,12 +363,6 @@ export default function LoginPage() {
           </div>
         </CardContent>
       </Card>
-        </div>
-        {/* Decorative goose */}
-        <div className="hidden sm:flex items-start pt-8 flex-shrink-0">
-          <Image src="/gans.png" alt="Rentetool" width={90} height={90} className="opacity-70" />
-        </div>
-      </div>
 
       {/* Gratis uitproberen */}
       {showFreeTrialCard && (
