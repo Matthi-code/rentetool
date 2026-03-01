@@ -11,8 +11,9 @@ import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, signIn, signUp, resetPassword, updatePassword, isPasswordRecovery } = useAuth();
+  const { user, loading, signIn, signInWithMagicLink, signUp, resetPassword, updatePassword, isPasswordRecovery } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const [isMagicLink, setIsMagicLink] = useState(false);
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [isSetNewPassword, setIsSetNewPassword] = useState(false);
 
@@ -108,6 +109,13 @@ export default function LoginPage() {
         } else {
           setMessage('Wachtwoord reset e-mail verzonden. Controleer uw inbox.');
         }
+      } else if (isMagicLink) {
+        const { error } = await signInWithMagicLink(email);
+        if (error) {
+          setError(error.message);
+        } else {
+          setMessage('Login link verzonden! Controleer uw inbox.');
+        }
       } else if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
@@ -154,6 +162,8 @@ export default function LoginPage() {
               ? 'Nieuw wachtwoord instellen'
               : isResetPassword
               ? 'Wachtwoord vergeten'
+              : isMagicLink
+              ? 'Inloggen via e-mail'
               : isLogin
               ? 'Inloggen'
               : 'Registreren'}
@@ -163,6 +173,8 @@ export default function LoginPage() {
               ? 'Kies een nieuw wachtwoord voor uw account'
               : isResetPassword
               ? 'Voer uw e-mailadres in om een reset link te ontvangen'
+              : isMagicLink
+              ? 'Ontvang een login link in uw inbox — geen wachtwoord nodig'
               : isLogin
               ? 'Log in om uw renteberekeningen te beheren'
               : 'Maak een account aan om te beginnen'}
@@ -184,7 +196,7 @@ export default function LoginPage() {
                 />
               </div>
             )}
-            {!isResetPassword && (
+            {!isResetPassword && !isMagicLink && (
               <div className="space-y-2">
                 <Label htmlFor="password">{isSetNewPassword ? 'Nieuw wachtwoord' : 'Wachtwoord'}</Label>
                 <Input
@@ -234,6 +246,8 @@ export default function LoginPage() {
                 ? 'Wachtwoord opslaan'
                 : isResetPassword
                 ? 'Verstuur reset link'
+                : isMagicLink
+                ? 'Verstuur login link'
                 : isLogin
                 ? 'Inloggen'
                 : 'Account aanmaken'}
@@ -255,8 +269,35 @@ export default function LoginPage() {
               >
                 ← Terug naar inloggen
               </button>
+            ) : isMagicLink ? (
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium"
+                onClick={() => {
+                  setIsMagicLink(false);
+                  setIsLogin(true);
+                  setError(null);
+                  setMessage(null);
+                }}
+              >
+                Inloggen met wachtwoord
+              </button>
             ) : isLogin ? (
               <>
+                <div>
+                  <button
+                    type="button"
+                    className="text-primary hover:underline font-medium"
+                    onClick={() => {
+                      setIsMagicLink(true);
+                      setIsLogin(false);
+                      setError(null);
+                      setMessage(null);
+                    }}
+                  >
+                    Inloggen via e-mail link
+                  </button>
+                </div>
                 <div>
                   <button
                     type="button"

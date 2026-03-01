@@ -95,7 +95,7 @@ export default function CaseDetailPage() {
   const { user, loading: authLoading } = useAuth();
   const caseId = params.id as string;
 
-  const { isFree, maxVorderingen, maxDeelbetalingen, kanOpslaan, kanSnapshots, kanSharing, kanSchonePdf } = useSubscription();
+  const { isFree, maxVorderingen, maxDeelbetalingen, kanSnapshots, kanSharing } = useSubscription();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState('');
 

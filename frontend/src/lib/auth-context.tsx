@@ -11,6 +11,7 @@ interface AuthContextType {
   demoMode: boolean;
   isPasswordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -92,6 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const signInWithMagicLink = async (email: string) => {
+    if (demoMode || !supabase) {
+      return { error: new Error('Demo mode - magic link not available') };
+    }
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+    return { error };
+  };
+
   const signUp = async (email: string, password: string) => {
     if (demoMode || !supabase) {
       return { error: new Error('Demo mode - registration not available') };
@@ -146,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         demoMode,
         isPasswordRecovery,
         signIn,
+        signInWithMagicLink,
         signUp,
         signOut,
         resetPassword,
