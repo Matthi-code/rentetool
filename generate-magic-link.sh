@@ -11,7 +11,7 @@ RESULT=$(curl -s -X POST "$SUPABASE_URL/auth/v1/admin/generate_link" \
   -H "Authorization: Bearer $SERVICE_KEY" \
   -H "apikey: $ANON_KEY" \
   -H "Content-Type: application/json" \
-  -d "{\"type\": \"magiclink\", \"email\": \"$EMAIL\"}")
+  -d "{\"type\": \"magiclink\", \"email\": \"$EMAIL\", \"data\": {\"redirect_to\": \"https://rentetool.jmtest.nl/login\"}}")
 
 LINK=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('action_link','FOUT: kon link niet genereren'))")
 
