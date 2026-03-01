@@ -127,15 +127,23 @@ export default function Dashboard() {
   }, [fontSize, fontSizeLoaded]);
 
   useEffect(() => {
-    // Don't redirect if there's an auth hash (magic link / recovery) — wait for Supabase to process it
-    const hasAuthHash = typeof window !== 'undefined' && window.location.hash.includes('access_token');
-    if (!authLoading && !user && !hasAuthHash) {
-      router.push('/login');
+    if (authLoading) return;
+
+    if (user) {
+      // Clear any auth hash from URL after successful login
+      if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+        window.location.hash = '';
+      }
+      loadCases();
       return;
     }
-    if (user) {
-      loadCases();
+
+    // No user — check if we should wait for hash processing
+    const hasAuthHash = typeof window !== 'undefined' && window.location.hash.includes('access_token');
+    if (!hasAuthHash) {
+      router.push('/login');
     }
+    // If hasAuthHash, wait — Supabase is processing the token, onAuthStateChange will fire
   }, [user, authLoading, router]);
 
   async function loadCases(isRefresh = false) {
