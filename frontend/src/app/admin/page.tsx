@@ -22,6 +22,11 @@ import {
   getDomainStats,
   assignRole,
   removeRole,
+  getAdminUserSubscriptions,
+  getSubscriptionStats,
+  getAdminSubscriptionTiers,
+  assignSubscription,
+  updateAdminSubscriptionTier,
   type AdminStats,
   type UserStats,
   type AdminCase,
@@ -29,7 +34,11 @@ import {
   type AdminCheckResponse,
   type UserRole,
   type DomainOverview,
+  type AdminUserSubscription,
+  type SubscriptionStats,
+  type AdminSubscriptionTier,
 } from '@/lib/api';
+import { Badge } from '@/components/ui/badge';
 import { formatDatum, formatDatumTijd } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -40,7 +49,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type ActiveTab = 'dashboard' | 'users' | 'domains' | 'activity';
+type ActiveTab = 'dashboard' | 'users' | 'domains' | 'activity' | 'subscriptions';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -87,6 +96,12 @@ export default function AdminPage() {
   const [tabLoading, setTabLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roleUpdating, setRoleUpdating] = useState<string | null>(null);
+
+  // Subscription state
+  const [subUsers, setSubUsers] = useState<AdminUserSubscription[]>([]);
+  const [subStats, setSubStats] = useState<SubscriptionStats | null>(null);
+  const [subTiers, setSubTiers] = useState<AdminSubscriptionTier[]>([]);
+  const [subUpdating, setSubUpdating] = useState<string | null>(null);
 
   // Activity tab state
   const [activityDomainFilter, setActivityDomainFilter] = useState<string>('all');
@@ -182,6 +197,16 @@ export default function AdminPage() {
         ]);
         if (casesData !== cases) setCases(casesData);
         setUsageLogs(logsData);
+      }
+      if (tab === 'subscriptions') {
+        const [tiersData, usersData, statsData] = await Promise.all([
+          getAdminSubscriptionTiers(),
+          getAdminUserSubscriptions(),
+          getSubscriptionStats(),
+        ]);
+        setSubTiers(tiersData);
+        setSubUsers(usersData);
+        setSubStats(statsData);
       }
     } catch (err) {
       console.error(err);
@@ -289,11 +314,12 @@ export default function AdminPage() {
 
       {/* Tab Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as ActiveTab)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="users">Gebruikers</TabsTrigger>
           {isAdmin && <TabsTrigger value="domains">Domeinen</TabsTrigger>}
           <TabsTrigger value="activity">Activiteit</TabsTrigger>
+          {isAdmin && <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>}
         </TabsList>
 
         {/* Dashboard Tab */}
@@ -923,6 +949,160 @@ export default function AdminPage() {
             </div>
           )}
         </TabsContent>
+
+        {/* Subscriptions Tab */}
+        {isAdmin && (
+          <TabsContent value="subscriptions">
+            {tabLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Laden...</div>
+            ) : (
+              <div className="space-y-6">
+                {/* Stats */}
+                {subStats && (
+                  <div className="grid gap-4 sm:grid-cols-3 mb-6">
+                    <Card>
+                      <CardContent className="pt-6 text-center">
+                        <div className="text-3xl font-bold">{subStats.total_free}</div>
+                        <div className="text-sm text-muted-foreground">Free (Starter)</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6 text-center">
+                        <div className="text-3xl font-bold text-amber-600">{subStats.total_pro}</div>
+                        <div className="text-sm text-muted-foreground">Pro</div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6 text-center">
+                        <div className="text-3xl font-bold text-primary">{subStats.total_enterprise}</div>
+                        <div className="text-sm text-muted-foreground">Enterprise</div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* Tier Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Tier Instellingen</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead>Tier</TableHead>
+                          <TableHead className="text-center">Max Vorderingen</TableHead>
+                          <TableHead className="text-center">Max Deelbetalingen</TableHead>
+                          <TableHead className="text-center">Opslaan</TableHead>
+                          <TableHead className="text-center">PDF Schoon</TableHead>
+                          <TableHead className="text-center">Snapshots</TableHead>
+                          <TableHead className="text-center">Delen</TableHead>
+                          <TableHead className="text-right">Prijs/mnd</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {subTiers.map((tier) => (
+                          <TableRow key={tier.id}>
+                            <TableCell className="font-medium">{tier.naam} ({tier.id})</TableCell>
+                            <TableCell className="text-center">{tier.max_vorderingen ?? '∞'}</TableCell>
+                            <TableCell className="text-center">{tier.max_deelbetalingen ?? '∞'}</TableCell>
+                            <TableCell className="text-center">{tier.mag_opslaan ? '✓' : '—'}</TableCell>
+                            <TableCell className="text-center">{tier.mag_pdf_schoon ? '✓' : '—'}</TableCell>
+                            <TableCell className="text-center">{tier.mag_snapshots ? '✓' : '—'}</TableCell>
+                            <TableCell className="text-center">{tier.mag_sharing ? '✓' : '—'}</TableCell>
+                            <TableCell className="text-right">
+                              {tier.prijs_per_maand != null ? `€${tier.prijs_per_maand}` : '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+
+                {/* User Subscriptions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Gebruiker Subscriptions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead>Email</TableHead>
+                          <TableHead>Huidige Tier</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Toegekend door</TableHead>
+                          <TableHead className="text-center">Actie</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {subUsers.map((u) => (
+                          <TableRow key={u.user_id}>
+                            <TableCell className="font-medium">
+                              {u.email}
+                              {u.display_name && (
+                                <span className="text-muted-foreground ml-1">({u.display_name})</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={u.tier_id === 'pro' ? 'default' : u.tier_id === 'enterprise' ? 'secondary' : 'outline'}
+                                className={u.tier_id === 'pro' ? 'bg-amber-100 text-amber-800 border-amber-200' : ''}
+                              >
+                                {u.tier_naam}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{u.status}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {u.toegekend_door_email || '—'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Select
+                                value={u.tier_id}
+                                onValueChange={async (newTier) => {
+                                  if (newTier === u.tier_id) return;
+                                  setSubUpdating(u.user_id);
+                                  try {
+                                    await assignSubscription(u.user_id, newTier);
+                                    // Refresh
+                                    const [usersData, statsData] = await Promise.all([
+                                      getAdminUserSubscriptions(),
+                                      getSubscriptionStats(),
+                                    ]);
+                                    setSubUsers(usersData);
+                                    setSubStats(statsData);
+                                  } catch (err) {
+                                    console.error(err);
+                                    setError('Kon subscription niet wijzigen');
+                                  } finally {
+                                    setSubUpdating(null);
+                                  }
+                                }}
+                                disabled={subUpdating === u.user_id}
+                              >
+                                <SelectTrigger className="w-32 h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {subTiers.map((t) => (
+                                    <SelectItem key={t.id} value={t.id}>
+                                      {t.naam}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

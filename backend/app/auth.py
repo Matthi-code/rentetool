@@ -58,6 +58,21 @@ def ensure_user_profile(user_id: str, email: str) -> None:
             if 'duplicate' not in str(e).lower() and '23505' not in str(e):
                 logger.warning(f"Failed to assign role to {email}: {e}")
 
+    # Ensure user has a subscription (free tier by default)
+    try:
+        subs = db.table('user_subscriptions').select('id').eq('user_id', user_id).execute()
+        if not subs.data:
+            db.table('user_subscriptions').insert({
+                'user_id': user_id,
+                'tier_id': 'free',
+                'status': 'active'
+            }).execute()
+            logger.info(f"Assigned default 'free' subscription to {email}")
+    except Exception as e:
+        # Subscription tables may not exist yet, or duplicate
+        if 'duplicate' not in str(e).lower() and '23505' not in str(e):
+            logger.debug(f"Subscription init for {email}: {e}")
+
 
 async def get_current_user(
     request: Request,

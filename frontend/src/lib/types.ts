@@ -193,6 +193,19 @@ export interface Snapshot {
   totaal_openstaand: number;
 }
 
+// Subscription Types
+
+export interface SubscriptionTier {
+  tier_id: string;
+  naam: string;
+  max_vorderingen: number | null;
+  max_deelbetalingen: number | null;
+  mag_opslaan: boolean;
+  mag_pdf_schoon: boolean;
+  mag_snapshots: boolean;
+  mag_sharing: boolean;
+}
+
 // UI Types
 
 export const RENTETYPE_LABELS: Record<number, string> = {

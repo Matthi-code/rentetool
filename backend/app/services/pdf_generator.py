@@ -161,6 +161,18 @@ def _add_page_header_and_watermark(canvas, doc):
     canvas.saveState()
     page_width, page_height = A4
 
+    # ===== FREEMIUM WATERMARK (diagonal text for free tier) =====
+    if getattr(doc, '_freemium_watermark', False):
+        canvas.saveState()
+        canvas.setFont("Helvetica-Bold", 40)
+        canvas.setFillColor(colors.Color(0.7, 0.7, 0.7, alpha=0.25))
+        canvas.translate(page_width / 2, page_height / 2)
+        canvas.rotate(45)
+        canvas.drawCentredString(0, 30, "CONCEPT")
+        canvas.setFont("Helvetica", 16)
+        canvas.drawCentredString(0, -10, "Niet voor professioneel gebruik")
+        canvas.restoreState()
+
     # ===== WATERMARK (centered, subtle) =====
     if os.path.exists(LOGO_PATH):
         try:
@@ -203,7 +215,7 @@ def _add_page_header_and_watermark(canvas, doc):
     canvas.restoreState()
 
 
-def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_created: datetime) -> bytes:
+def generate_pdf(invoer: Dict[str, Any], resultaat: Dict[str, Any], snapshot_created: datetime, watermark: bool = False) -> bytes:
     """Generate PDF report matching webapp design exactly."""
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -330,6 +342,9 @@ De gebruiker is zelf verantwoordelijk voor het verifiëren van de uitkomsten."""
         f"Gegenereerd: {snapshot_created.strftime('%d-%m-%Y %H:%M')}"
     )
     story.append(Paragraph(footer_text, styles['Footer']))
+
+    # Store watermark flag on doc for the page drawing function
+    doc._freemium_watermark = watermark
 
     # Build PDF with header and watermark on each page
     doc.build(story, onFirstPage=_add_page_header_and_watermark, onLaterPages=_add_page_header_and_watermark)

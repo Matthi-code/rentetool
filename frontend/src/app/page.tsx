@@ -33,7 +33,9 @@ import {
 import { getCases, createCase, deleteCase, leaveSharedCase } from '@/lib/api';
 import { formatDatum, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
+import { useSubscription } from '@/lib/subscription-context';
 import { SharedBadge } from '@/components/shared-badge';
+import { ProBadge } from '@/components/pro-badge';
 import type { Case } from '@/lib/types';
 
 type ViewMode = 'cards' | 'table';
@@ -45,6 +47,7 @@ type FontSize = 'small' | 'medium' | 'large';
 export default function Dashboard() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { isFree, tier } = useSubscription();
   const [cases, setCases] = useState<Case[]>(() => {
     // Load cached cases for instant display
     if (typeof window !== 'undefined') {
@@ -303,6 +306,11 @@ export default function Dashboard() {
               ? 'Maak uw eerste renteberekening aan'
               : `${cases.length} ${cases.length === 1 ? 'zaak' : 'zaken'} in beheer`}
           </p>
+          {isFree && (
+            <p className="text-xs text-amber-600 mt-1 flex items-center gap-1.5">
+              <ProBadge /> Gratis versie &mdash; max {tier.max_vorderingen} vorderingen, {tier.max_deelbetalingen} deelbetaling per zaak
+            </p>
+          )}
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

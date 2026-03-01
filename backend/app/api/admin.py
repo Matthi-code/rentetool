@@ -683,3 +683,217 @@ async def transfer_case(case_id: str, auth_info: tuple = Depends(require_admin_o
         raise HTTPException(status_code=500, detail="Kon zaak niet overdragen")
 
     return {"message": "Zaak overgedragen", "success": True, "previous_owner_id": original_owner_id}
+
+
+# =============
+# Subscription Management Endpoints (Admin only)
+# =============
+
+class SubscriptionTierResponse(BaseModel):
+    id: str
+    naam: str
+    max_vorderingen: int | None
+    max_deelbetalingen: int | None
+    mag_opslaan: bool
+    mag_pdf_schoon: bool
+    mag_snapshots: bool
+    mag_sharing: bool
+    prijs_per_maand: float | None
+    actief: bool
+
+
+class SubscriptionTierUpdateRequest(BaseModel):
+    max_vorderingen: int | None = None
+    max_deelbetalingen: int | None = None
+    mag_opslaan: bool | None = None
+    mag_pdf_schoon: bool | None = None
+    mag_snapshots: bool | None = None
+    mag_sharing: bool | None = None
+    prijs_per_maand: float | None = None
+
+
+class UserSubscriptionInfo(BaseModel):
+    user_id: str
+    email: str
+    display_name: str | None
+    tier_id: str
+    tier_naam: str
+    status: str
+    start_datum: str | None
+    toegekend_door_email: str | None = None
+
+
+class AssignSubscriptionRequest(BaseModel):
+    user_id: str
+    tier_id: str
+    notitie: str | None = None
+
+
+class SubscriptionStatsResponse(BaseModel):
+    total_free: int
+    total_pro: int
+    total_enterprise: int
+
+
+@router.get("/subscriptions/tiers", response_model=List[SubscriptionTierResponse])
+async def list_subscription_tiers(admin_id: str = Depends(require_admin)):
+    """List all subscription tiers with their settings."""
+    db = get_db()
+
+    try:
+        tiers = db.table('subscription_tiers').select('*').order('prijs_per_maand').execute()
+        return [SubscriptionTierResponse(
+            id=t['id'],
+            naam=t['naam'],
+            max_vorderingen=t.get('max_vorderingen'),
+            max_deelbetalingen=t.get('max_deelbetalingen'),
+            mag_opslaan=t.get('mag_opslaan', False),
+            mag_pdf_schoon=t.get('mag_pdf_schoon', False),
+            mag_snapshots=t.get('mag_snapshots', False),
+            mag_sharing=t.get('mag_sharing', False),
+            prijs_per_maand=float(t['prijs_per_maand']) if t.get('prijs_per_maand') else None,
+            actief=t.get('actief', True),
+        ) for t in tiers.data]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tiers niet laden: {e}")
+
+
+@router.put("/subscriptions/tiers/{tier_id}")
+async def update_subscription_tier(
+    tier_id: str,
+    update: SubscriptionTierUpdateRequest,
+    admin_id: str = Depends(require_admin),
+):
+    """Update a subscription tier's limits (admin only)."""
+    db = get_db()
+
+    update_data = {}
+    for field, value in update.model_dump(exclude_none=True).items():
+        update_data[field] = value
+
+    if not update_data:
+        return {"message": "Geen wijzigingen", "success": True}
+
+    update_data['updated_at'] = 'now()'
+
+    try:
+        result = db.table('subscription_tiers').update(update_data).eq('id', tier_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Tier niet gevonden")
+        return {"message": f"Tier '{tier_id}' bijgewerkt", "success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tier niet bijwerken: {e}")
+
+
+@router.get("/subscriptions/users", response_model=List[UserSubscriptionInfo])
+async def list_user_subscriptions(admin_id: str = Depends(require_admin)):
+    """List all users with their subscription tier."""
+    db = get_db()
+
+    try:
+        # Get all user profiles
+        profiles = db.table('user_profiles').select('id, email, display_name').order('created_at', desc=True).execute()
+
+        # Get all active subscriptions
+        subs = db.table('user_subscriptions').select('*').eq('status', 'active').execute()
+        subs_by_user = {}
+        for s in subs.data:
+            subs_by_user[s['user_id']] = s
+
+        # Get tier names
+        tiers = db.table('subscription_tiers').select('id, naam').execute()
+        tier_names = {t['id']: t['naam'] for t in tiers.data}
+
+        # Get admin emails for "toegekend_door"
+        admin_ids = list(set(s.get('toegekend_door') for s in subs.data if s.get('toegekend_door')))
+        admin_emails = {}
+        if admin_ids:
+            admins = db.table('user_profiles').select('id, email').in_('id', admin_ids).execute()
+            admin_emails = {a['id']: a['email'] for a in admins.data}
+
+        result = []
+        for p in profiles.data:
+            sub = subs_by_user.get(p['id'])
+            tier_id = sub['tier_id'] if sub else 'free'
+            result.append(UserSubscriptionInfo(
+                user_id=p['id'],
+                email=p['email'],
+                display_name=p.get('display_name'),
+                tier_id=tier_id,
+                tier_naam=tier_names.get(tier_id, tier_id),
+                status=sub['status'] if sub else 'active',
+                start_datum=str(sub['start_datum']) if sub and sub.get('start_datum') else None,
+                toegekend_door_email=admin_emails.get(sub['toegekend_door']) if sub and sub.get('toegekend_door') else None,
+            ))
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon subscriptions niet laden: {e}")
+
+
+@router.post("/subscriptions/assign")
+async def assign_subscription(
+    assignment: AssignSubscriptionRequest,
+    admin_id: str = Depends(require_admin),
+):
+    """Assign a subscription tier to a user (admin only)."""
+    db = get_db()
+
+    try:
+        # Verify tier exists
+        tier = db.table('subscription_tiers').select('id, naam').eq('id', assignment.tier_id).execute()
+        if not tier.data:
+            raise HTTPException(status_code=404, detail="Tier niet gevonden")
+
+        # Deactivate existing active subscriptions
+        db.table('user_subscriptions').update({
+            'status': 'cancelled',
+            'updated_at': 'now()'
+        }).eq('user_id', assignment.user_id).eq('status', 'active').execute()
+
+        # Create new subscription
+        db.table('user_subscriptions').insert({
+            'user_id': assignment.user_id,
+            'tier_id': assignment.tier_id,
+            'status': 'active',
+            'toegekend_door': admin_id,
+            'notitie': assignment.notitie,
+        }).execute()
+
+        tier_naam = tier.data[0]['naam']
+        return {"message": f"Gebruiker is nu {tier_naam}", "success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon subscription niet toekennen: {e}")
+
+
+@router.get("/subscriptions/stats", response_model=SubscriptionStatsResponse)
+async def get_subscription_stats(admin_id: str = Depends(require_admin)):
+    """Get subscription statistics."""
+    db = get_db()
+
+    try:
+        subs = db.table('user_subscriptions').select('tier_id').eq('status', 'active').execute()
+
+        counts = {'free': 0, 'pro': 0, 'enterprise': 0}
+        for s in subs.data:
+            tier = s.get('tier_id', 'free')
+            if tier in counts:
+                counts[tier] += 1
+
+        # Count users without any subscription (they're free)
+        profiles = db.table('user_profiles').select('id', count='exact').execute()
+        total_users = profiles.count or 0
+        total_with_sub = len(subs.data)
+        counts['free'] += max(0, total_users - total_with_sub)
+
+        return SubscriptionStatsResponse(
+            total_free=counts['free'],
+            total_pro=counts['pro'],
+            total_enterprise=counts['enterprise'],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon stats niet laden: {e}")

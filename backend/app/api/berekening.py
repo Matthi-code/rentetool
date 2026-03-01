@@ -2,7 +2,9 @@
 Berekening API routes
 """
 from decimal import Decimal
-from fastapi import APIRouter, HTTPException
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import Response
 
 from app.models.berekening import (
     BerekeningRequest,
@@ -14,6 +16,7 @@ from app.models.berekening import (
     Toerekening,
     Totalen,
 )
+from app.auth import get_current_user
 from app.services.rente_calculator import (
     RenteCalculator,
     Vordering as CalcVordering,
@@ -197,3 +200,72 @@ async def bereken_rente(request: BerekeningRequest):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/bereken/pdf")
+async def bereken_rente_pdf(request: BerekeningRequest, user_id: str = Depends(get_current_user)):
+    """
+    Calculate and generate PDF directly (without saving a snapshot).
+    Free users get a watermarked PDF, Pro users get a clean one.
+    """
+    from app.services.pdf_generator import generate_pdf
+    from app.services.subscription import get_user_tier
+    from app.db.supabase import get_supabase_client
+
+    # Run calculation
+    result = await bereken_rente(request)
+
+    # Check tier for watermark
+    db = get_supabase_client()
+    tier = get_user_tier(user_id, db)
+    watermark = not tier.mag_pdf_schoon
+
+    # Build invoer structure for PDF
+    invoer = {
+        'case': {
+            'naam': 'Renteberekening',
+            'einddatum': str(request.einddatum),
+            'strategie': request.strategie,
+        },
+        'vorderingen': [
+            {
+                'kenmerk': v.kenmerk,
+                'bedrag': str(v.bedrag),
+                'datum': str(v.datum),
+                'rentetype': v.rentetype,
+                'kosten': str(v.kosten or 0),
+                'opslag': str(v.opslag) if v.opslag else None,
+                'opslag_ingangsdatum': str(v.opslag_ingangsdatum) if v.opslag_ingangsdatum else None,
+            }
+            for v in request.vorderingen
+        ],
+        'deelbetalingen': [
+            {
+                'kenmerk': d.kenmerk,
+                'bedrag': str(d.bedrag),
+                'datum': str(d.datum),
+                'aangewezen': d.aangewezen or [],
+            }
+            for d in request.deelbetalingen
+        ],
+    }
+
+    resultaat = result.model_dump(mode='json')
+    now = datetime.now()
+
+    pdf_bytes = generate_pdf(
+        invoer=invoer,
+        resultaat=resultaat,
+        snapshot_created=now,
+        watermark=watermark,
+    )
+
+    filename = f"renteberekening_{now.strftime('%Y%m%d_%H%M')}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )

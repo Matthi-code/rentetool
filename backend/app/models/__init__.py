@@ -10,6 +10,10 @@ from .sharing import (
     ColleagueResponse, ColleagueWithPermission, CaseShareCreate,
     CaseShareResponse, CaseShareInfo, ColleagueCountResponse
 )
+from .subscription import (
+    SubscriptionTier, SubscriptionTierUpdate, UserSubscription,
+    UserSubscriptionCreate, UserTierResponse
+)
 
 __all__ = [
     "Vordering", "VorderingCreate", "VorderingResponse",
@@ -19,4 +23,6 @@ __all__ = [
     "Snapshot", "SnapshotCreate", "SnapshotResponse",
     "ColleagueResponse", "ColleagueWithPermission", "CaseShareCreate",
     "CaseShareResponse", "CaseShareInfo", "ColleagueCountResponse",
+    "SubscriptionTier", "SubscriptionTierUpdate", "UserSubscription",
+    "UserSubscriptionCreate", "UserTierResponse",
 ]

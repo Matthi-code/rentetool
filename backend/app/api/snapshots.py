@@ -10,6 +10,7 @@ from fastapi.responses import Response
 from app.models import SnapshotResponse
 from app.auth import get_current_user
 from app.db.supabase import get_supabase_client
+from app.services.subscription import get_user_tier, check_feature
 
 router = APIRouter()
 
@@ -48,6 +49,11 @@ async def create_snapshot(case_id: str, user_id: str = Depends(get_current_user)
     from app.models.berekening import BerekeningRequest, VorderingInput, DeelbetalingInput
 
     db = get_db()
+
+    # Check snapshots permission
+    error = check_feature(user_id, 'snapshots', db)
+    if error:
+        raise HTTPException(status_code=403, detail=error)
 
     # Get case with ownership check
     case_response = db.table('cases').select('*').eq('id', case_id).eq('user_id', user_id).execute()
@@ -189,11 +195,16 @@ async def get_snapshot_pdf(snapshot_id: str, user_id: str = Depends(get_current_
     # Parse created_at for filename
     created_at = datetime.fromisoformat(snapshot['created_at'].replace('Z', '+00:00'))
 
+    # Check tier for watermark
+    tier = get_user_tier(user_id, db)
+    watermark = not tier.mag_pdf_schoon
+
     # Generate PDF
     pdf_bytes = generate_pdf(
         invoer=snapshot['invoer_json'],
         resultaat=snapshot['resultaat_json'],
         snapshot_created=created_at,
+        watermark=watermark,
     )
 
     filename = f"renteberekening_{snapshot['invoer_json']['case']['naam'].replace(' ', '_')}_{created_at.strftime('%Y%m%d_%H%M')}.pdf"

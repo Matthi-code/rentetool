@@ -10,6 +10,7 @@ from app.models import (
 )
 from app.auth import get_current_user
 from app.db.supabase import get_supabase_client
+from app.services.subscription import check_feature
 
 router = APIRouter()
 
@@ -70,6 +71,11 @@ async def share_case(
 ):
     """Share a case with a colleague."""
     db = get_db()
+
+    # Check sharing permission
+    error = check_feature(user_id, 'sharing', db)
+    if error:
+        raise HTTPException(status_code=403, detail=error)
 
     # Verify case ownership
     case = db.table('cases').select('id, user_id').eq('id', case_id).execute()

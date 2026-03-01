@@ -14,6 +14,7 @@ import type {
   Snapshot,
   Colleague,
   CaseShare,
+  SubscriptionTier,
 } from './types';
 import { createClient } from './supabase/client';
 
@@ -314,6 +315,75 @@ export async function leaveSharedCase(caseId: string): Promise<void> {
   });
 }
 
+// Subscription API
+
+export async function getMyTier(): Promise<SubscriptionTier> {
+  try {
+    return await fetchApi<SubscriptionTier>('/api/subscription/me');
+  } catch {
+    // Fallback to free tier if subscription service not available
+    return {
+      tier_id: 'free',
+      naam: 'Starter',
+      max_vorderingen: 3,
+      max_deelbetalingen: 1,
+      mag_opslaan: false,
+      mag_pdf_schoon: false,
+      mag_snapshots: false,
+      mag_sharing: false,
+    };
+  }
+}
+
+export async function berekenRentePdf(
+  caseData: CaseWithLines
+): Promise<Blob> {
+  const token = await getAuthToken();
+
+  const request = {
+    einddatum: caseData.einddatum,
+    strategie: caseData.strategie,
+    vorderingen: caseData.vorderingen.map((v) => ({
+      item_type: v.item_type || 'vordering',
+      kenmerk: v.kenmerk,
+      bedrag: v.bedrag,
+      datum: v.datum,
+      rentetype: v.rentetype,
+      kosten: v.kosten,
+      kosten_rentedatum: v.kosten_rentedatum,
+      opslag: v.opslag,
+      opslag_ingangsdatum: v.opslag_ingangsdatum,
+      pauze_start: v.pauze_start,
+      pauze_eind: v.pauze_eind,
+    })),
+    deelbetalingen: caseData.deelbetalingen.map((d) => ({
+      kenmerk: d.kenmerk,
+      bedrag: d.bedrag,
+      datum: d.datum,
+      aangewezen: d.aangewezen,
+    })),
+  };
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/api/bereken/pdf`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, 'Failed to generate PDF');
+  }
+
+  return response.blob();
+}
+
 // Admin API
 
 export interface AdminStats {
@@ -480,4 +550,69 @@ export interface ViewAsUserResponse {
 
 export async function viewAsUser(userId: string): Promise<ViewAsUserResponse> {
   return fetchApi<ViewAsUserResponse>(`/api/admin/view-as-user/${userId}`);
+}
+
+// Admin Subscription Management API
+
+export interface AdminSubscriptionTier {
+  id: string;
+  naam: string;
+  max_vorderingen: number | null;
+  max_deelbetalingen: number | null;
+  mag_opslaan: boolean;
+  mag_pdf_schoon: boolean;
+  mag_snapshots: boolean;
+  mag_sharing: boolean;
+  prijs_per_maand: number | null;
+  actief: boolean;
+}
+
+export interface AdminUserSubscription {
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  tier_id: string;
+  tier_naam: string;
+  status: string;
+  start_datum: string | null;
+  toegekend_door_email: string | null;
+}
+
+export interface SubscriptionStats {
+  total_free: number;
+  total_pro: number;
+  total_enterprise: number;
+}
+
+export async function getAdminSubscriptionTiers(): Promise<AdminSubscriptionTier[]> {
+  return fetchApi<AdminSubscriptionTier[]>('/api/admin/subscriptions/tiers');
+}
+
+export async function updateAdminSubscriptionTier(
+  tierId: string,
+  data: Partial<AdminSubscriptionTier>
+): Promise<{ message: string; success: boolean }> {
+  return fetchApi(`/api/admin/subscriptions/tiers/${tierId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getAdminUserSubscriptions(): Promise<AdminUserSubscription[]> {
+  return fetchApi<AdminUserSubscription[]>('/api/admin/subscriptions/users');
+}
+
+export async function assignSubscription(
+  userId: string,
+  tierId: string,
+  notitie?: string
+): Promise<{ message: string; success: boolean }> {
+  return fetchApi('/api/admin/subscriptions/assign', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, tier_id: tierId, notitie }),
+  });
+}
+
+export async function getSubscriptionStats(): Promise<SubscriptionStats> {
+  return fetchApi<SubscriptionStats>('/api/admin/subscriptions/stats');
 }

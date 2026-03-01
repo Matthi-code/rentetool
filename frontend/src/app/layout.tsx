@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Merriweather, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { SubscriptionProvider } from "@/lib/subscription-context";
 import { Header } from "@/components/header";
 
 const inter = Inter({
@@ -34,6 +35,7 @@ export default function RootLayout({
     <html lang="nl">
       <body className={`${inter.variable} ${merriweather.variable} ${jetbrainsMono.variable} font-sans antialiased min-h-screen bg-background`}>
         <AuthProvider>
+        <SubscriptionProvider>
           <div className="flex min-h-screen flex-col">
             {/* Demo banner */}
             <div className="bg-amber-500 text-amber-950 text-center py-2 px-4 text-sm font-medium">
@@ -55,6 +57,7 @@ export default function RootLayout({
               </div>
             </footer>
           </div>
+        </SubscriptionProvider>
         </AuthProvider>
       </body>
     </html>

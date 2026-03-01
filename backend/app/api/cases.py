@@ -13,6 +13,9 @@ from app.models import (
 )
 from app.auth import get_current_user
 from app.db.supabase import get_supabase_client
+from app.services.subscription import (
+    get_user_tier, check_vordering_limit, check_deelbetaling_limit, check_feature
+)
 
 router = APIRouter()
 
@@ -182,6 +185,9 @@ async def list_cases(
 async def create_case(case: CaseCreate, user_id: str = Depends(get_current_user)):
     """Create a new case."""
     db = get_db()
+
+    # Note: free users can create cases for calculations,
+    # but other features (sharing, snapshots) are gated separately.
 
     case_data = {
         'user_id': user_id,
@@ -367,6 +373,11 @@ async def create_vordering(case_id: str, vordering: VorderingCreate, user_id: st
     if not can_edit_case(db, case_id, user_id):
         raise HTTPException(status_code=404, detail="Case not found")
 
+    # Check vordering limit
+    limit_error = check_vordering_limit(user_id, case_id, db)
+    if limit_error:
+        raise HTTPException(status_code=403, detail=limit_error)
+
     # Get current max volgorde
     max_volgorde = db.table('vorderingen').select('volgorde').eq('case_id', case_id).order('volgorde', desc=True).limit(1).execute()
     next_volgorde = (max_volgorde.data[0]['volgorde'] + 1) if max_volgorde.data else 0
@@ -473,6 +484,11 @@ async def create_deelbetaling(case_id: str, deelbetaling: DeelbetalingCreate, us
     # Verify case edit permission (owner or edit share)
     if not can_edit_case(db, case_id, user_id):
         raise HTTPException(status_code=404, detail="Case not found")
+
+    # Check deelbetaling limit
+    limit_error = check_deelbetaling_limit(user_id, case_id, db)
+    if limit_error:
+        raise HTTPException(status_code=403, detail=limit_error)
 
     # Get current max volgorde
     max_volgorde = db.table('deelbetalingen').select('volgorde').eq('case_id', case_id).order('volgorde', desc=True).limit(1).execute()

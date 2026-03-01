@@ -45,6 +45,7 @@ import {
   updateDeelbetaling,
   deleteDeelbetaling,
   berekenRente,
+  berekenRentePdf,
   createSnapshot,
   getSnapshotPdf,
   logUsage,
@@ -54,6 +55,10 @@ import { formatBedrag, formatBedragParts, formatDatum, formatDatumTm, formatPerc
 import { useAuth } from '@/lib/auth-context';
 import { ShareCaseDialog } from '@/components/share-case-dialog';
 import { SharedBadge } from '@/components/shared-badge';
+import { useSubscription } from '@/lib/subscription-context';
+import { ProBadge } from '@/components/pro-badge';
+import { UpgradeModal } from '@/components/upgrade-modal';
+import { TierLimitBanner } from '@/components/tier-limit-banner';
 import {
   RENTETYPE_LABELS,
   RENTETYPE_SHORT,
@@ -89,6 +94,10 @@ export default function CaseDetailPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const caseId = params.id as string;
+
+  const { isFree, maxVorderingen, maxDeelbetalingen, kanOpslaan, kanSnapshots, kanSharing, kanSchonePdf } = useSubscription();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState('');
 
   const [caseData, setCaseData] = useState<CaseWithLines | null>(null);
   const [loading, setLoading] = useState(true);
@@ -352,11 +361,16 @@ export default function CaseDetailPage() {
     setGeneratingPdf(true);
     setError(null);
     try {
-      // First create a snapshot (this generates the PDF)
-      const snapshot = await createSnapshot(caseId);
+      let blob: Blob;
 
-      // Then get the PDF blob
-      const blob = await getSnapshotPdf(snapshot.id);
+      if (kanSnapshots) {
+        // Pro: create snapshot and get PDF from it
+        const snapshot = await createSnapshot(caseId);
+        blob = await getSnapshotPdf(snapshot.id);
+      } else {
+        // Free: generate PDF directly (with watermark, no snapshot saved)
+        blob = await berekenRentePdf(caseData);
+      }
 
       // Log usage
       logUsage({ action_type: 'pdf_view', case_id: caseId, case_name: caseData.naam });
@@ -677,11 +691,22 @@ export default function CaseDetailPage() {
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             {isOwner ? (
-              <ShareCaseDialog caseId={caseId} caseName={caseData.naam} onShareChange={loadCase}>
-                <Button variant="outline" size="lg" className="shadow-sm">
-                  Delen
+              kanSharing ? (
+                <ShareCaseDialog caseId={caseId} caseName={caseData.naam} onShareChange={loadCase}>
+                  <Button variant="outline" size="lg" className="shadow-sm">
+                    Delen
+                  </Button>
+                </ShareCaseDialog>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="shadow-sm gap-1.5"
+                  onClick={() => { setUpgradeFeature('sharing'); setUpgradeModalOpen(true); }}
+                >
+                  Delen <ProBadge />
                 </Button>
-              </ShareCaseDialog>
+              )
             ) : (
               <Button
                 variant="outline"
@@ -785,11 +810,23 @@ export default function CaseDetailPage() {
           <div>
             <CardTitle className="text-lg font-serif">Vorderingen</CardTitle>
             <VorderingenSummary vorderingen={caseData.vorderingen} />
+            <TierLimitBanner
+              current={caseData.vorderingen.length}
+              max={maxVorderingen}
+              label="vorderingen"
+              onUpgrade={() => { setUpgradeFeature('vorderingen'); setUpgradeModalOpen(true); }}
+            />
           </div>
           {canEdit && !showInlineVordering && (
-            <Button size="sm" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
-              + Toevoegen
-            </Button>
+            maxVorderingen !== null && caseData.vorderingen.length >= maxVorderingen ? (
+              <Button size="sm" className="shadow-sm gap-1.5" onClick={() => { setUpgradeFeature('vorderingen'); setUpgradeModalOpen(true); }}>
+                + Toevoegen <ProBadge />
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
+                + Toevoegen
+              </Button>
+            )
           )}
         </CardHeader>
         <CardContent>
@@ -800,7 +837,7 @@ export default function CaseDetailPage() {
               </p>
               {canEdit && (
                 <Button variant="outline" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} disabled={savingVordering}>
-                  + Eerste vordering toevoegen
+                  + Eerste vordering toevoegen{maxVorderingen !== null ? ` (max ${maxVorderingen})` : ''}
                 </Button>
               )}
             </div>
@@ -1027,11 +1064,23 @@ export default function CaseDetailPage() {
                 ? 'Optioneel: voeg ontvangen betalingen toe'
                 : `${caseData.deelbetalingen.length} ${caseData.deelbetalingen.length === 1 ? 'betaling' : 'betalingen'}`}
             </p>
+            <TierLimitBanner
+              current={caseData.deelbetalingen.length}
+              max={maxDeelbetalingen}
+              label="deelbetalingen"
+              onUpgrade={() => { setUpgradeFeature('deelbetalingen'); setUpgradeModalOpen(true); }}
+            />
           </div>
           {canEdit && !showInlineDeelbetaling && (
-            <Button size="sm" onClick={() => { resetInlineDeelbetalingForm(); setShowInlineDeelbetaling(true); }} className="shadow-sm" disabled={savingDeelbetaling || deletingDeelbetalingId !== null}>
-              + Toevoegen
-            </Button>
+            maxDeelbetalingen !== null && caseData.deelbetalingen.length >= maxDeelbetalingen ? (
+              <Button size="sm" className="shadow-sm gap-1.5" onClick={() => { setUpgradeFeature('deelbetalingen'); setUpgradeModalOpen(true); }}>
+                + Toevoegen <ProBadge />
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => { resetInlineDeelbetalingForm(); setShowInlineDeelbetaling(true); }} className="shadow-sm" disabled={savingDeelbetaling || deletingDeelbetalingId !== null}>
+                + Toevoegen
+              </Button>
+            )
           )}
         </CardHeader>
         <CardContent>
@@ -2051,7 +2100,10 @@ export default function CaseDetailPage() {
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
           <DialogHeader className="px-6 py-4 border-b">
             <div className="flex items-center justify-between">
-              <DialogTitle>PDF Preview</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                PDF Preview
+                {isFree && <span className="text-xs font-normal text-amber-600">(met watermerk)</span>}
+              </DialogTitle>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
                   Download
@@ -2098,6 +2150,13 @@ export default function CaseDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        feature={upgradeFeature}
+      />
     </div>
   );
 }
