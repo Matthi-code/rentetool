@@ -36,6 +36,25 @@
 - **Graceful degradation:** Backend werkt ook zonder sharing tabellen
 - **Reden:** Samenwerking binnen organisaties mogelijk maken
 
+## 2026-03-02
+
+### Supabase Client: @supabase/supabase-js ipv @supabase/ssr
+- **Beslissing:** Singleton `createClient` van @supabase/supabase-js gebruiken ipv `createBrowserClient` van @supabase/ssr
+- **Reden:** @supabase/ssr detecteert geen hash tokens (#access_token=...) in de URL, nodig voor magic link flow
+- **Config:** `detectSessionInUrl: true`, `flowType: 'implicit'`
+
+### Site URL: rentetool.jmtest.nl (zonder cijfer)
+- **Beslissing:** rentetool1.jmtest.nl hernoemd naar rentetool.jmtest.nl
+- **Reden:** Cleaner URL, cijfer was legacy
+
+### Freemium: Pauze/Schorsing als Pro Feature
+- **Beslissing:** Schorsing/uitstel van betaling alleen voor Pro gebruikers
+- **Reden:** Waardevolle feature voor conversie, free users zien badge maar moeten upgraden
+
+### Free Tier Dashboard: Geen Case Lijst
+- **Beslissing:** Free users zien geen opgeslagen cases op dashboard, alleen "Nieuwe Zaak" knop
+- **Reden:** Free kan niet opslaan, cases in backend blijven voor statistieken
+
 ## 2026-01-22
 
 ### Toerekening Volgorde bij Betaling

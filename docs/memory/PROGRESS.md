@@ -1,5 +1,43 @@
 # Progress Log
 
+## 2026-03-02 — Sessie
+
+**Gedaan:**
+- Magic link (passwordless email login) volledig geïmplementeerd:
+  - Auth context uitgebreid met `signInWithMagicLink` methode
+  - Login pagina: toggle tussen wachtwoord en magic link modus
+  - Supabase client omgezet van @supabase/ssr naar @supabase/supabase-js (singleton)
+  - `detectSessionInUrl: true` + `flowType: 'implicit'` voor hash-based auth
+  - Dashboard: hash token detectie en verwerking voor redirect flow
+- Login pagina herontwerp:
+  - Gans afbeelding verwijderd
+  - "Gratis uitproberen" sectie toegevoegd onder login (groen/emerald styling)
+  - Gecentreerd max-w-md layout
+- Freemium feature gating:
+  - Schorsing/uitstel (pauze) als Pro-only feature
+  - `mag_pauze` toegevoegd aan subscription tiers (DB, backend, frontend)
+  - ProBadge en upgrade modal voor pauze feature
+  - Free users: case lijst verborgen op dashboard, alleen "Nieuwe Zaak" knop
+- PDF fix: try-catch toegevoegd, ontbrekende velden (item_type, pauze) in invoer
+- Fly.io token opgeslagen, backend deployed
+- SQL migratie 008_add_mag_pauze uitgevoerd
+- Gebruikers matthi+rente@gcon.nl upgraded naar Pro
+- Test account test@rentetool.nl aangemaakt met wachtwoord Free123
+- generate-magic-link.sh script voor testen zonder email
+
+**Productie URLs:**
+- Frontend: https://rentetool.jmtest.nl (was rentetool1, URL gewijzigd)
+- Backend: https://rentetool-api.fly.dev
+
+**Volgende stap:**
+- Testen free tier flow met test@rentetool.nl / Free123
+- SMTP/Resend setup voor echte magic link emails
+- Supabase Site URL aanpassen naar /login voor magic link redirect
+- Mollie/Stripe betaalintegratie
+- Chrome login probleem onderzoeken
+
+---
+
 ## 2026-01-22 — Sessie (15:00)
 
 **Gedaan:**
