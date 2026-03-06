@@ -19,63 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# RENTETABEL - Hardcoded fallback
-# =============================================================================
-
-RENTETABEL_FALLBACK = [
-    # (datum, wettelijk%, handels%)
-    (date(2027, 1, 1), Decimal("0.04"), Decimal("0.1015")),
-    (date(2026, 1, 1), Decimal("0.04"), Decimal("0.1015")),
-    (date(2025, 7, 1), Decimal("0.06"), Decimal("0.1015")),
-    (date(2025, 1, 1), Decimal("0.06"), Decimal("0.1115")),
-    (date(2024, 7, 1), Decimal("0.07"), Decimal("0.1225")),
-    (date(2024, 1, 1), Decimal("0.07"), Decimal("0.125")),
-    (date(2023, 7, 1), Decimal("0.06"), Decimal("0.12")),
-    (date(2023, 1, 1), Decimal("0.04"), Decimal("0.105")),
-    (date(2022, 1, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2021, 7, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2021, 1, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2020, 7, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2020, 1, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2019, 7, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2019, 1, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2018, 7, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2018, 1, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2017, 7, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2017, 1, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2016, 7, 1), Decimal("0.02"), Decimal("0.08")),
-    (date(2016, 1, 1), Decimal("0.02"), Decimal("0.0805")),
-    (date(2015, 7, 1), Decimal("0.02"), Decimal("0.0805")),
-    (date(2015, 1, 1), Decimal("0.02"), Decimal("0.0805")),
-    (date(2014, 7, 1), Decimal("0.03"), Decimal("0.0815")),
-    (date(2014, 1, 1), Decimal("0.03"), Decimal("0.0825")),
-    (date(2013, 7, 1), Decimal("0.03"), Decimal("0.085")),
-    (date(2013, 3, 16), Decimal("0.03"), Decimal("0.0875")),
-    (date(2013, 1, 1), Decimal("0.03"), Decimal("0.0775")),
-    (date(2012, 7, 1), Decimal("0.03"), Decimal("0.08")),
-    (date(2012, 1, 1), Decimal("0.04"), Decimal("0.08")),
-    (date(2011, 7, 1), Decimal("0.04"), Decimal("0.0825")),
-    (date(2011, 1, 1), Decimal("0.03"), Decimal("0.08")),
-    (date(2010, 7, 1), Decimal("0.03"), Decimal("0.08")),
-    (date(2010, 1, 1), Decimal("0.03"), Decimal("0.08")),
-    (date(2009, 7, 1), Decimal("0.04"), Decimal("0.08")),
-    (date(2009, 1, 1), Decimal("0.06"), Decimal("0.095")),
-    (date(2008, 7, 1), Decimal("0.06"), Decimal("0.1107")),
-    (date(2008, 1, 1), Decimal("0.06"), Decimal("0.112")),
-    (date(2007, 7, 1), Decimal("0.06"), Decimal("0.1107")),
-    (date(2007, 1, 1), Decimal("0.06"), Decimal("0.1058")),
-    (date(2006, 7, 1), Decimal("0.04"), Decimal("0.0983")),
-    (date(2006, 1, 1), Decimal("0.04"), Decimal("0.0925")),
-    (date(2005, 7, 1), Decimal("0.04"), Decimal("0.0905")),
-    (date(2005, 1, 1), Decimal("0.04"), Decimal("0.0909")),
-    (date(2004, 7, 1), Decimal("0.04"), Decimal("0.0901")),
-    (date(2004, 2, 1), Decimal("0.04"), Decimal("0.0902")),
-    (date(2004, 1, 1), Decimal("0.05"), Decimal("0.0902")),
-]
-
-
-# =============================================================================
-# RENTETABEL CACHE - Laden uit database met fallback
+# RENTETABEL CACHE - Laden uit database
 # =============================================================================
 
 class RenteTabelCache:
@@ -96,8 +40,7 @@ class RenteTabelCache:
             handels = db.table('rentetabel_handels').select('ingangsdatum, percentage').order('ingangsdatum', desc=True).execute()
 
             if not wettelijk.data or not handels.data:
-                logger.warning("Rentetabellen leeg in database, gebruik fallback")
-                return False
+                raise RuntimeError("Rentetabellen zijn leeg in database. Vul de tabellen via het admin panel.")
 
             # Bouw een lookup dict voor handelsrente op datum
             handels_map = {}
@@ -141,8 +84,8 @@ class RenteTabelCache:
             return True
 
         except Exception as e:
-            logger.warning(f"Kan rentetabel niet laden uit database: {e}, gebruik fallback")
-            return False
+            logger.error(f"Kan rentetabel niet laden uit database: {e}")
+            raise RuntimeError(f"Kan rentetabel niet laden uit database: {e}")
 
     def _find_rate_for_date(self, rate_map: Dict[date, Decimal], target: date) -> Decimal:
         """Zoek het geldende tarief voor een datum in een rate map."""
@@ -157,10 +100,7 @@ class RenteTabelCache:
     @property
     def rentetabel(self) -> List:
         if not self._loaded:
-            if not self._load_from_db():
-                self._rentetabel = RENTETABEL_FALLBACK
-                self._rente_wijzigingsdata = sorted(set(d[0] for d in RENTETABEL_FALLBACK))
-                self._loaded = True
+            self._load_from_db()
         return self._rentetabel
 
     @property
@@ -185,15 +125,6 @@ def get_rentetabel_cache() -> RenteTabelCache:
     """Get the singleton cache instance."""
     return _cache
 
-
-# Backwards-compatible module-level access
-@property
-def _rentetabel_property(self):
-    return _cache.rentetabel
-
-# Module-level variables that delegate to cache
-RENTETABEL = None  # Will be accessed via get_rentetabel() function
-RENTE_WIJZIGINGSDATA = None  # Will be accessed via get_rente_wijzigingsdata() function
 
 
 def get_rentetabel():
