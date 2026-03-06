@@ -55,6 +55,18 @@
 - **Beslissing:** Free users zien geen opgeslagen cases op dashboard, alleen "Nieuwe Zaak" knop
 - **Reden:** Free kan niet opslaan, cases in backend blijven voor statistieken
 
+## 2026-03-06
+
+### Rentetabellen: Database als Single Source of Truth
+- **Beslissing:** Hardcoded fallback rentetabel (`RENTETABEL_FALLBACK`) verwijderd
+- **Reden:** Rentepercentages worden beheerd via admin panel → database is de enige bron
+- **Effect:** Als database onbereikbaar is, geeft de API een duidelijke error ipv stale data
+
+### dagen_jaar: Kapitalisatiejaar bepaalt 365 of 366
+- **Beslissing:** Bij samengestelde rente wordt `dagen_jaar` bepaald op basis van het kapitalisatiejaar (verjaardag tot verjaardag), niet per subperiode
+- **Reden:** Conform de wet is de kapitalisatieperiode altijd 1 jaar; alle tussenberekeningen horen bij dat jaar
+- **Implementatie:** `dagen_in_kapitalisatiejaar(vordering_startdatum, subperiode_start)` functie
+
 ## 2026-01-22
 
 ### Toerekening Volgorde bij Betaling

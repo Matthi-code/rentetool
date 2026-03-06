@@ -1,5 +1,32 @@
 # Progress Log
 
+## 2026-03-06 — Sessie
+
+**Gedaan:**
+- 3 ideeën geïmplementeerd:
+  - UX: Opslaan-knop prominenter ("Vordering opslaan", grotere knop)
+  - Default betaaltermijn op dossierniveau (DB migratie, backend, frontend prefill)
+  - Visuele feedback betaaltermijn in periodes (info-banner met factuurdatum/termijn/rentestartdatum)
+- Fallback rentetabel verwijderd: rentepercentages komen nu exclusief uit Supabase database
+- Backend opnieuw gedeployd op Fly.io (import fix `RENTETABEL` → `get_rentetabel`)
+- Supabase schema cache herladen (ontbrekende kolommen `betaaltermijn_dagen`, `bodemrente`, `kosten_categorie`)
+- Bug fix: kapitalisatie-detectie voor schrikkeldatum (29 feb) — gebruik `verjaardag()` functie
+- Bug fix: `dagen_jaar` bij samengestelde rente nu gebaseerd op kapitalisatiejaar (verjaardag tot verjaardag), niet per subperiode
+- BIK calculator, Excel export, kosten categorieën mee gecommit (eerder ongecommit werk)
+- Learning gelogd over kapitalisatiejaar-berekening
+
+**Beslissingen:**
+- Rentetabellen: geen fallback meer, database is single source of truth
+- dagen_jaar: kapitalisatiejaar bepaalt 365/366 voor samengestelde rente
+
+**Volgende stap:**
+- Testen schrikkeljaar-berekeningen met diverse startdata
+- SMTP/Resend setup voor magic link emails
+- Mollie/Stripe betaalintegratie
+- Backend Excel export endpoint aansluiten op frontend
+
+---
+
 ## 2026-03-02 — Sessie
 
 **Gedaan:**
