@@ -169,6 +169,9 @@ export async function berekenRente(
       opslag_ingangsdatum: v.opslag_ingangsdatum,
       pauze_start: v.pauze_start,
       pauze_eind: v.pauze_eind,
+      betaaltermijn_dagen: v.betaaltermijn_dagen || 0,
+      bodemrente: v.bodemrente,
+      kosten_categorie: v.kosten_categorie,
     })),
     deelbetalingen: caseData.deelbetalingen.map((d) => ({
       kenmerk: d.kenmerk,
@@ -356,6 +359,9 @@ export async function berekenRentePdf(
       opslag_ingangsdatum: v.opslag_ingangsdatum,
       pauze_start: v.pauze_start,
       pauze_eind: v.pauze_eind,
+      betaaltermijn_dagen: v.betaaltermijn_dagen || 0,
+      bodemrente: v.bodemrente,
+      kosten_categorie: v.kosten_categorie,
     })),
     deelbetalingen: caseData.deelbetalingen.map((d) => ({
       kenmerk: d.kenmerk,
@@ -380,6 +386,63 @@ export async function berekenRentePdf(
 
   if (!response.ok) {
     throw new ApiError(response.status, 'Failed to generate PDF');
+  }
+
+  return response.blob();
+}
+
+// Excel Export API
+
+export async function berekenRenteExcel(
+  caseData: CaseWithLines
+): Promise<Blob> {
+  const token = await getAuthToken();
+
+  const request = {
+    einddatum: caseData.einddatum,
+    strategie: caseData.strategie,
+    vorderingen: caseData.vorderingen.map((v) => ({
+      item_type: v.item_type || 'vordering',
+      kenmerk: v.kenmerk,
+      bedrag: v.bedrag,
+      datum: v.datum,
+      rentetype: v.rentetype,
+      kosten: v.kosten,
+      kosten_rentedatum: v.kosten_rentedatum,
+      opslag: v.opslag,
+      opslag_ingangsdatum: v.opslag_ingangsdatum,
+      pauze_start: v.pauze_start,
+      pauze_eind: v.pauze_eind,
+      betaaltermijn_dagen: v.betaaltermijn_dagen || 0,
+      bodemrente: v.bodemrente,
+      kosten_categorie: v.kosten_categorie,
+    })),
+    deelbetalingen: caseData.deelbetalingen.map((d) => ({
+      kenmerk: d.kenmerk,
+      bedrag: d.bedrag,
+      datum: d.datum,
+      aangewezen: d.aangewezen,
+    })),
+  };
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}/api/bereken/excel`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    if (response.status === 403) {
+      throw new ApiError(403, 'Excel export is een Pro-functie');
+    }
+    throw new ApiError(response.status, 'Failed to generate Excel');
   }
 
   return response.blob();
@@ -514,6 +577,60 @@ export async function getDomainStats(): Promise<DomainOverview> {
 
 export async function getConsumerDomains(): Promise<{ domains: string[] }> {
   return fetchApi<{ domains: string[] }>('/api/admin/consumer-domains');
+}
+
+// Admin Rentetabel API
+
+export interface AdminRenteTabelEntry {
+  id: string;
+  ingangsdatum: string;
+  percentage: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function getAdminRentetabelWettelijk(): Promise<AdminRenteTabelEntry[]> {
+  return fetchApi<AdminRenteTabelEntry[]>('/api/admin/rentetabel/wettelijk');
+}
+
+export async function getAdminRentetabelHandels(): Promise<AdminRenteTabelEntry[]> {
+  return fetchApi<AdminRenteTabelEntry[]>('/api/admin/rentetabel/handels');
+}
+
+export async function createRentetabelWettelijk(data: { ingangsdatum: string; percentage: number }): Promise<AdminRenteTabelEntry> {
+  return fetchApi<AdminRenteTabelEntry>('/api/admin/rentetabel/wettelijk', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createRentetabelHandels(data: { ingangsdatum: string; percentage: number }): Promise<AdminRenteTabelEntry> {
+  return fetchApi<AdminRenteTabelEntry>('/api/admin/rentetabel/handels', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRentetabelWettelijk(id: string, data: { percentage: number }): Promise<AdminRenteTabelEntry> {
+  return fetchApi<AdminRenteTabelEntry>(`/api/admin/rentetabel/wettelijk/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRentetabelHandels(id: string, data: { percentage: number }): Promise<AdminRenteTabelEntry> {
+  return fetchApi<AdminRenteTabelEntry>(`/api/admin/rentetabel/handels/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteRentetabelWettelijk(id: string): Promise<void> {
+  await fetchApi(`/api/admin/rentetabel/wettelijk/${id}`, { method: 'DELETE' });
+}
+
+export async function deleteRentetabelHandels(id: string): Promise<void> {
+  await fetchApi(`/api/admin/rentetabel/handels/${id}`, { method: 'DELETE' });
 }
 
 // View as User API (Admin only)

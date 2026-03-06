@@ -26,7 +26,14 @@ import {
   getSubscriptionStats,
   getAdminSubscriptionTiers,
   assignSubscription,
-  // updateAdminSubscriptionTier,
+  getAdminRentetabelWettelijk,
+  getAdminRentetabelHandels,
+  createRentetabelWettelijk,
+  createRentetabelHandels,
+  updateRentetabelWettelijk,
+  updateRentetabelHandels,
+  deleteRentetabelWettelijk,
+  deleteRentetabelHandels,
   type AdminStats,
   type UserStats,
   type AdminCase,
@@ -37,8 +44,10 @@ import {
   type AdminUserSubscription,
   type SubscriptionStats,
   type AdminSubscriptionTier,
+  type AdminRenteTabelEntry,
 } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { formatDatum, formatDatumTijd } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
 import {
@@ -49,7 +58,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type ActiveTab = 'dashboard' | 'users' | 'domains' | 'activity' | 'subscriptions';
+type ActiveTab = 'dashboard' | 'users' | 'domains' | 'activity' | 'subscriptions' | 'rentetabellen';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
@@ -102,6 +111,16 @@ export default function AdminPage() {
   const [subStats, setSubStats] = useState<SubscriptionStats | null>(null);
   const [subTiers, setSubTiers] = useState<AdminSubscriptionTier[]>([]);
   const [subUpdating, setSubUpdating] = useState<string | null>(null);
+
+  // Rentetabel state
+  const [renteWettelijk, setRenteWettelijk] = useState<AdminRenteTabelEntry[]>([]);
+  const [renteHandels, setRenteHandels] = useState<AdminRenteTabelEntry[]>([]);
+  const [renteEditId, setRenteEditId] = useState<string | null>(null);
+  const [renteEditValue, setRenteEditValue] = useState<string>('');
+  const [renteUpdating, setRenteUpdating] = useState(false);
+  const [renteNewDatum, setRenteNewDatum] = useState<string>('');
+  const [renteNewPercentage, setRenteNewPercentage] = useState<string>('');
+  const [renteAddType, setRenteAddType] = useState<'wettelijk' | 'handels' | null>(null);
 
   // Activity tab state
   const [activityDomainFilter, setActivityDomainFilter] = useState<string>('all');
@@ -207,6 +226,14 @@ export default function AdminPage() {
         setSubTiers(tiersData);
         setSubUsers(usersData);
         setSubStats(statsData);
+      }
+      if (tab === 'rentetabellen') {
+        const [wettelijkData, handelsData] = await Promise.all([
+          getAdminRentetabelWettelijk(),
+          getAdminRentetabelHandels(),
+        ]);
+        setRenteWettelijk(wettelijkData);
+        setRenteHandels(handelsData);
       }
     } catch (err) {
       console.error(err);
@@ -314,12 +341,13 @@ export default function AdminPage() {
 
       {/* Tab Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as ActiveTab)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="users">Gebruikers</TabsTrigger>
           {isAdmin && <TabsTrigger value="domains">Domeinen</TabsTrigger>}
           <TabsTrigger value="activity">Activiteit</TabsTrigger>
           {isAdmin && <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="rentetabellen">Rentetabellen</TabsTrigger>}
         </TabsList>
 
         {/* Dashboard Tab */}
@@ -1097,6 +1125,344 @@ export default function AdminPage() {
                         ))}
                       </TableBody>
                     </Table>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+        )}
+        {/* Rentetabellen Tab */}
+        {isAdmin && (
+          <TabsContent value="rentetabellen">
+            {tabLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Laden...</div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Wettelijke rente */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-serif">Wettelijke Rente</CardTitle>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setRenteAddType(renteAddType === 'wettelijk' ? null : 'wettelijk');
+                          setRenteNewDatum('');
+                          setRenteNewPercentage('');
+                        }}
+                      >
+                        {renteAddType === 'wettelijk' ? 'Annuleren' : '+ Toevoegen'}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {renteAddType === 'wettelijk' && (
+                      <div className="flex items-end gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
+                        <div className="flex-1">
+                          <label className="text-xs text-muted-foreground">Ingangsdatum</label>
+                          <Input
+                            type="date"
+                            value={renteNewDatum}
+                            onChange={(e) => setRenteNewDatum(e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="w-28">
+                          <label className="text-xs text-muted-foreground">Percentage</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="bijv. 4.00"
+                            value={renteNewPercentage}
+                            onChange={(e) => setRenteNewPercentage(e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          className="h-9"
+                          disabled={!renteNewDatum || !renteNewPercentage || renteUpdating}
+                          onClick={async () => {
+                            setRenteUpdating(true);
+                            try {
+                              await createRentetabelWettelijk({
+                                ingangsdatum: renteNewDatum,
+                                percentage: parseFloat(renteNewPercentage) / 100,
+                              });
+                              const data = await getAdminRentetabelWettelijk();
+                              setRenteWettelijk(data);
+                              setRenteAddType(null);
+                              setRenteNewDatum('');
+                              setRenteNewPercentage('');
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : 'Kon tarief niet toevoegen');
+                            } finally {
+                              setRenteUpdating(false);
+                            }
+                          }}
+                        >
+                          Opslaan
+                        </Button>
+                      </div>
+                    )}
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Ingangsdatum</TableHead>
+                            <TableHead className="text-right">Percentage</TableHead>
+                            <TableHead className="w-[100px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {renteWettelijk.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell className="font-mono">
+                                {formatDatum(entry.ingangsdatum)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {renteEditId === entry.id ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={renteEditValue}
+                                      onChange={(e) => setRenteEditValue(e.target.value)}
+                                      className="w-24 h-7 text-right text-sm"
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === 'Enter') {
+                                          setRenteUpdating(true);
+                                          try {
+                                            await updateRentetabelWettelijk(entry.id, {
+                                              percentage: parseFloat(renteEditValue) / 100,
+                                            });
+                                            const data = await getAdminRentetabelWettelijk();
+                                            setRenteWettelijk(data);
+                                            setRenteEditId(null);
+                                          } catch (err) {
+                                            setError(err instanceof Error ? err.message : 'Kon tarief niet wijzigen');
+                                          } finally {
+                                            setRenteUpdating(false);
+                                          }
+                                        } else if (e.key === 'Escape') {
+                                          setRenteEditId(null);
+                                        }
+                                      }}
+                                    />
+                                    <span className="text-xs text-muted-foreground">%</span>
+                                  </div>
+                                ) : (
+                                  <span
+                                    className="cursor-pointer hover:text-primary"
+                                    onClick={() => {
+                                      setRenteEditId(entry.id);
+                                      setRenteEditValue((entry.percentage * 100).toFixed(2));
+                                    }}
+                                  >
+                                    {(entry.percentage * 100).toFixed(2)}%
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                                  disabled={renteUpdating}
+                                  onClick={async () => {
+                                    if (!confirm(`Weet u zeker dat u het tarief van ${formatDatum(entry.ingangsdatum)} wilt verwijderen?`)) return;
+                                    setRenteUpdating(true);
+                                    try {
+                                      await deleteRentetabelWettelijk(entry.id);
+                                      const data = await getAdminRentetabelWettelijk();
+                                      setRenteWettelijk(data);
+                                    } catch (err) {
+                                      setError(err instanceof Error ? err.message : 'Kon tarief niet verwijderen');
+                                    } finally {
+                                      setRenteUpdating(false);
+                                    }
+                                  }}
+                                >
+                                  Verwijder
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {renteWettelijk.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                                Geen tarieven gevonden
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Handelsrente */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="font-serif">Handelsrente</CardTitle>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setRenteAddType(renteAddType === 'handels' ? null : 'handels');
+                          setRenteNewDatum('');
+                          setRenteNewPercentage('');
+                        }}
+                      >
+                        {renteAddType === 'handels' ? 'Annuleren' : '+ Toevoegen'}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {renteAddType === 'handels' && (
+                      <div className="flex items-end gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
+                        <div className="flex-1">
+                          <label className="text-xs text-muted-foreground">Ingangsdatum</label>
+                          <Input
+                            type="date"
+                            value={renteNewDatum}
+                            onChange={(e) => setRenteNewDatum(e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="w-28">
+                          <label className="text-xs text-muted-foreground">Percentage</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="bijv. 10.15"
+                            value={renteNewPercentage}
+                            onChange={(e) => setRenteNewPercentage(e.target.value)}
+                            className="h-9"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          className="h-9"
+                          disabled={!renteNewDatum || !renteNewPercentage || renteUpdating}
+                          onClick={async () => {
+                            setRenteUpdating(true);
+                            try {
+                              await createRentetabelHandels({
+                                ingangsdatum: renteNewDatum,
+                                percentage: parseFloat(renteNewPercentage) / 100,
+                              });
+                              const data = await getAdminRentetabelHandels();
+                              setRenteHandels(data);
+                              setRenteAddType(null);
+                              setRenteNewDatum('');
+                              setRenteNewPercentage('');
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : 'Kon tarief niet toevoegen');
+                            } finally {
+                              setRenteUpdating(false);
+                            }
+                          }}
+                        >
+                          Opslaan
+                        </Button>
+                      </div>
+                    )}
+                    <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead>Ingangsdatum</TableHead>
+                            <TableHead className="text-right">Percentage</TableHead>
+                            <TableHead className="w-[100px]"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {renteHandels.map((entry) => (
+                            <TableRow key={entry.id}>
+                              <TableCell className="font-mono">
+                                {formatDatum(entry.ingangsdatum)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {renteEditId === entry.id ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={renteEditValue}
+                                      onChange={(e) => setRenteEditValue(e.target.value)}
+                                      className="w-24 h-7 text-right text-sm"
+                                      autoFocus
+                                      onKeyDown={async (e) => {
+                                        if (e.key === 'Enter') {
+                                          setRenteUpdating(true);
+                                          try {
+                                            await updateRentetabelHandels(entry.id, {
+                                              percentage: parseFloat(renteEditValue) / 100,
+                                            });
+                                            const data = await getAdminRentetabelHandels();
+                                            setRenteHandels(data);
+                                            setRenteEditId(null);
+                                          } catch (err) {
+                                            setError(err instanceof Error ? err.message : 'Kon tarief niet wijzigen');
+                                          } finally {
+                                            setRenteUpdating(false);
+                                          }
+                                        } else if (e.key === 'Escape') {
+                                          setRenteEditId(null);
+                                        }
+                                      }}
+                                    />
+                                    <span className="text-xs text-muted-foreground">%</span>
+                                  </div>
+                                ) : (
+                                  <span
+                                    className="cursor-pointer hover:text-primary"
+                                    onClick={() => {
+                                      setRenteEditId(entry.id);
+                                      setRenteEditValue((entry.percentage * 100).toFixed(2));
+                                    }}
+                                  >
+                                    {(entry.percentage * 100).toFixed(2)}%
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                                  disabled={renteUpdating}
+                                  onClick={async () => {
+                                    if (!confirm(`Weet u zeker dat u het tarief van ${formatDatum(entry.ingangsdatum)} wilt verwijderen?`)) return;
+                                    setRenteUpdating(true);
+                                    try {
+                                      await deleteRentetabelHandels(entry.id);
+                                      const data = await getAdminRentetabelHandels();
+                                      setRenteHandels(data);
+                                    } catch (err) {
+                                      setError(err instanceof Error ? err.message : 'Kon tarief niet verwijderen');
+                                    } finally {
+                                      setRenteUpdating(false);
+                                    }
+                                  }}
+                                >
+                                  Verwijder
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {renteHandels.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                                Geen tarieven gevonden
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

@@ -44,9 +44,9 @@ async def root():
 
 
 @app.get("/api/rentetabel")
-async def get_rentetabel():
+async def get_rentetabel_endpoint():
     """Get the current interest rate table."""
-    from app.services.rente_calculator import RENTETABEL
+    from app.services.rente_calculator import get_rentetabel
 
     return [
         {
@@ -54,5 +54,5 @@ async def get_rentetabel():
             "wettelijk": float(wet),
             "handels": float(handel)
         }
-        for datum, wet, handel in RENTETABEL
+        for datum, wet, handel in get_rentetabel()
     ]

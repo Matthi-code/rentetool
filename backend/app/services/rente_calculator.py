@@ -13,13 +13,16 @@ from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, timedelta
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# RENTETABEL
+# RENTETABEL - Hardcoded fallback
 # =============================================================================
 
-RENTETABEL = [
+RENTETABEL_FALLBACK = [
     # (datum, wettelijk%, handels%)
     (date(2027, 1, 1), Decimal("0.04"), Decimal("0.1015")),
     (date(2026, 1, 1), Decimal("0.04"), Decimal("0.1015")),
@@ -70,23 +73,153 @@ RENTETABEL = [
     (date(2004, 1, 1), Decimal("0.05"), Decimal("0.0902")),
 ]
 
-# Extraheer alle rentewijzigingsdata
-RENTE_WIJZIGINGSDATA = sorted(set(d[0] for d in RENTETABEL))
+
+# =============================================================================
+# RENTETABEL CACHE - Laden uit database met fallback
+# =============================================================================
+
+class RenteTabelCache:
+    """In-memory cache voor rentetabellen uit de database."""
+
+    def __init__(self):
+        self._rentetabel: List = None
+        self._rente_wijzigingsdata: List[date] = None
+        self._loaded = False
+
+    def _load_from_db(self):
+        """Laad rentetabellen uit de database."""
+        try:
+            from app.db.supabase import get_supabase_client
+            db = get_supabase_client()
+
+            wettelijk = db.table('rentetabel_wettelijk').select('ingangsdatum, percentage').order('ingangsdatum', desc=True).execute()
+            handels = db.table('rentetabel_handels').select('ingangsdatum, percentage').order('ingangsdatum', desc=True).execute()
+
+            if not wettelijk.data or not handels.data:
+                logger.warning("Rentetabellen leeg in database, gebruik fallback")
+                return False
+
+            # Bouw een lookup dict voor handelsrente op datum
+            handels_map = {}
+            for row in handels.data:
+                d = date.fromisoformat(row['ingangsdatum'])
+                handels_map[d] = Decimal(str(row['percentage']))
+
+            # Bouw gecombineerde tabel
+            # Alle unieke data uit beide tabellen
+            alle_data = set()
+            for row in wettelijk.data:
+                alle_data.add(date.fromisoformat(row['ingangsdatum']))
+            for row in handels.data:
+                alle_data.add(date.fromisoformat(row['ingangsdatum']))
+
+            wettelijk_map = {}
+            for row in wettelijk.data:
+                d = date.fromisoformat(row['ingangsdatum'])
+                wettelijk_map[d] = Decimal(str(row['percentage']))
+
+            # Bouw gecombineerde tabel gesorteerd op datum (nieuwste eerst)
+            tabel = []
+            for d in sorted(alle_data, reverse=True):
+                wet = wettelijk_map.get(d)
+                handel = handels_map.get(d)
+                if wet is not None and handel is not None:
+                    tabel.append((d, wet, handel))
+                elif wet is not None:
+                    # Zoek meest recente handelsrente voor deze datum
+                    h = self._find_rate_for_date(handels_map, d)
+                    tabel.append((d, wet, h))
+                elif handel is not None:
+                    # Zoek meest recente wettelijke rente voor deze datum
+                    w = self._find_rate_for_date(wettelijk_map, d)
+                    tabel.append((d, w, handel))
+
+            self._rentetabel = tabel
+            self._rente_wijzigingsdata = sorted(set(d[0] for d in tabel))
+            self._loaded = True
+            logger.info(f"Rentetabel geladen uit database: {len(tabel)} entries")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Kan rentetabel niet laden uit database: {e}, gebruik fallback")
+            return False
+
+    def _find_rate_for_date(self, rate_map: Dict[date, Decimal], target: date) -> Decimal:
+        """Zoek het geldende tarief voor een datum in een rate map."""
+        for d in sorted(rate_map.keys(), reverse=True):
+            if target >= d:
+                return rate_map[d]
+        # Fallback: oudste entry
+        if rate_map:
+            return rate_map[min(rate_map.keys())]
+        return Decimal("0")
+
+    @property
+    def rentetabel(self) -> List:
+        if not self._loaded:
+            if not self._load_from_db():
+                self._rentetabel = RENTETABEL_FALLBACK
+                self._rente_wijzigingsdata = sorted(set(d[0] for d in RENTETABEL_FALLBACK))
+                self._loaded = True
+        return self._rentetabel
+
+    @property
+    def rente_wijzigingsdata(self) -> List[date]:
+        if not self._loaded:
+            _ = self.rentetabel  # Trigger load
+        return self._rente_wijzigingsdata
+
+    def invalidate(self):
+        """Invalideer de cache zodat de volgende request opnieuw laadt."""
+        self._rentetabel = None
+        self._rente_wijzigingsdata = None
+        self._loaded = False
+        logger.info("Rentetabel cache geïnvalideerd")
+
+
+# Singleton cache instance
+_cache = RenteTabelCache()
+
+
+def get_rentetabel_cache() -> RenteTabelCache:
+    """Get the singleton cache instance."""
+    return _cache
+
+
+# Backwards-compatible module-level access
+@property
+def _rentetabel_property(self):
+    return _cache.rentetabel
+
+# Module-level variables that delegate to cache
+RENTETABEL = None  # Will be accessed via get_rentetabel() function
+RENTE_WIJZIGINGSDATA = None  # Will be accessed via get_rente_wijzigingsdata() function
+
+
+def get_rentetabel():
+    """Get de rentetabel (uit cache/database)."""
+    return _cache.rentetabel
+
+
+def get_rente_wijzigingsdata():
+    """Get de rentewijzigingsdata (uit cache/database)."""
+    return _cache.rente_wijzigingsdata
 
 
 def get_rente_percentage(datum: date, is_handelsrente: bool, opslag: Decimal = Decimal("0")) -> Decimal:
     """Haal het geldende rentepercentage op voor een datum, inclusief eventuele opslag."""
-    for rente_datum, wet, handel in RENTETABEL:
+    tabel = get_rentetabel()
+    for rente_datum, wet, handel in tabel:
         if datum >= rente_datum:
             basis = handel if is_handelsrente else wet
             return basis + opslag
-    basis = RENTETABEL[-1][2 if is_handelsrente else 1]
+    basis = tabel[-1][2 if is_handelsrente else 1]
     return basis + opslag
 
 
 def get_volgende_rentewijziging(na_datum: date, voor_datum: date) -> Optional[date]:
     """Vind de eerstvolgende rentewijzigingsdatum na na_datum en voor voor_datum."""
-    for wijziging in RENTE_WIJZIGINGSDATA:
+    for wijziging in get_rente_wijzigingsdata():
         if na_datum < wijziging < voor_datum:
             return wijziging
     return None
@@ -110,6 +243,9 @@ class Vordering:
     opslag_ingangsdatum: Optional[date] = None  # Default: startdatum
     pauze_start: Optional[date] = None  # Start of interest pause
     pauze_eind: Optional[date] = None  # End of interest pause
+    betaaltermijn_dagen: int = 0  # Betaaltermijn in dagen (rente start na termijn)
+    bodemrente: Optional[Decimal] = None  # Minimum rentepercentage
+    factuurdatum: Optional[date] = None  # Originele factuurdatum (voor weergave betaaltermijn)
 
     # Huidige staat
     hoofdsom: Decimal = field(default=Decimal("0"))
@@ -139,6 +275,26 @@ class Vordering:
     def __post_init__(self):
         self.hoofdsom = self.oorspronkelijk_bedrag
         self.openstaande_kosten = self.kosten
+        # Betaaltermijn verschuift de effectieve startdatum
+        if self.betaaltermijn_dagen > 0:
+            self.factuurdatum = self.startdatum  # Bewaar originele factuurdatum
+            self.startdatum = self.startdatum + timedelta(days=self.betaaltermijn_dagen)
+            # Voeg betaaltermijn-periode toe (geen rente)
+            dagen = self.betaaltermijn_dagen
+            jaar_dagen = dagen_in_jaar(self.factuurdatum, self.startdatum)
+            self.periodes.append({
+                'start': self.factuurdatum,
+                'eind': self.startdatum,
+                'dagen': dagen,
+                'dagen_jaar': jaar_dagen,
+                'hoofdsom': self.hoofdsom,
+                'rente_pct': Decimal("0"),
+                'rente': Decimal("0"),
+                'opgebouwd': Decimal("0"),
+                'is_kapitalisatie': False,
+                'is_pauze': False,
+                'is_betaaltermijn': True
+            })
         if self.opslag_ingangsdatum is None:
             self.opslag_ingangsdatum = self.startdatum
         # Kosten rentedatum default naar startdatum als niet opgegeven
@@ -169,14 +325,18 @@ class Vordering:
         """Haal rentepercentage op voor deze vordering op een datum."""
         if self.rentetype == 5:
             # Contractueel vast percentage - gebruik opslag als het vaste percentage
-            return self.opslag
+            pct = self.opslag
         elif self.rentetype in (6, 7):
             # Wettelijke/handelsrente + opslag
             opslag = self.opslag if datum >= self.opslag_ingangsdatum else Decimal("0")
-            return get_rente_percentage(datum, self.is_handelsrente, opslag)
+            pct = get_rente_percentage(datum, self.is_handelsrente, opslag)
         else:
             # Standaard wettelijke of handelsrente
-            return get_rente_percentage(datum, self.is_handelsrente)
+            pct = get_rente_percentage(datum, self.is_handelsrente)
+        # Bodemrente: minimum rentepercentage
+        if self.bodemrente is not None:
+            pct = max(pct, self.bodemrente)
+        return pct
 
 
 @dataclass
@@ -203,11 +363,30 @@ def verjaardag(start_datum: date, jaar: int) -> date:
         return date(jaar, start_datum.month, 28)
 
 
-def bereken_rente(hoofdsom: Decimal, rente_pct: Decimal, dagen: int) -> Decimal:
+def heeft_schrikkeldag(start: date, eind: date) -> bool:
+    """Check of er een 29 februari in de periode [start, eind) valt."""
+    jaar_start = start.year
+    jaar_eind = eind.year
+    for jaar in range(jaar_start, jaar_eind + 1):
+        # Check of dit jaar een schrikkeljaar is
+        if jaar % 4 == 0 and (jaar % 100 != 0 or jaar % 400 == 0):
+            feb29 = date(jaar, 2, 29)
+            if start <= feb29 < eind:
+                return True
+    return False
+
+
+def dagen_in_jaar(start: date, eind: date) -> int:
+    """Bepaal het aantal dagen van het jaar voor een renteperiode.
+    Als er een 29 februari in de periode valt, is het 366, anders 365."""
+    return 366 if heeft_schrikkeldag(start, eind) else 365
+
+
+def bereken_rente(hoofdsom: Decimal, rente_pct: Decimal, dagen: int, dagen_jaar: int = 365) -> Decimal:
     """Bereken rentebedrag."""
     if dagen <= 0 or hoofdsom <= 0:
         return Decimal("0")
-    rente = hoofdsom * rente_pct * Decimal(dagen) / Decimal(365)
+    rente = hoofdsom * rente_pct * Decimal(dagen) / Decimal(dagen_jaar)
     return rente.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
@@ -245,7 +424,7 @@ class RenteCalculator:
         splitpunten = set()
 
         # Voeg rentewijzigingsdata toe
-        for wijziging in RENTE_WIJZIGINGSDATA:
+        for wijziging in get_rente_wijzigingsdata():
             if van_datum < wijziging < tot_datum:
                 splitpunten.add(wijziging)
 
@@ -285,7 +464,7 @@ class RenteCalculator:
 
         # Haal splitpunten op (alleen rentewijzigingen + pauze grenzen, geen kapitalisatie voor kosten)
         splitpunten = []
-        for wijziging in RENTE_WIJZIGINGSDATA:
+        for wijziging in get_rente_wijzigingsdata():
             if huidige_datum < wijziging < tot_datum:
                 splitpunten.append(wijziging)
         # Add pause boundaries
@@ -306,6 +485,8 @@ class RenteCalculator:
             dagen = (splitpunt - huidige_datum).days
             rente_pct = vordering.get_rente_pct(huidige_datum)
 
+            jaar_dagen = dagen_in_jaar(huidige_datum, splitpunt)
+
             if is_in_pauze:
                 # No interest during pause
                 rente = Decimal("0")
@@ -313,6 +494,7 @@ class RenteCalculator:
                     'start': huidige_datum,
                     'eind': splitpunt,
                     'dagen': dagen,
+                    'dagen_jaar': jaar_dagen,
                     'kosten': vordering.openstaande_kosten,
                     'rente_pct': Decimal("0"),
                     'rente': Decimal("0"),
@@ -320,7 +502,7 @@ class RenteCalculator:
                     'is_pauze': True
                 })
             else:
-                rente = bereken_rente(vordering.openstaande_kosten, rente_pct, dagen)
+                rente = bereken_rente(vordering.openstaande_kosten, rente_pct, dagen, jaar_dagen)
                 vordering.opgebouwde_rente_kosten += rente
                 vordering.totale_rente_kosten += rente
 
@@ -328,6 +510,7 @@ class RenteCalculator:
                     'start': huidige_datum,
                     'eind': splitpunt,
                     'dagen': dagen,
+                    'dagen_jaar': jaar_dagen,
                     'kosten': vordering.openstaande_kosten,
                     'rente_pct': rente_pct,
                     'rente': rente,
@@ -390,6 +573,8 @@ class RenteCalculator:
             dagen = (splitpunt - huidige_datum).days
             rente_pct = vordering.get_rente_pct(huidige_datum)
 
+            jaar_dagen = dagen_in_jaar(huidige_datum, splitpunt)
+
             if is_in_pauze:
                 # No interest during pause
                 rente = Decimal("0")
@@ -397,6 +582,7 @@ class RenteCalculator:
                     'start': huidige_datum,
                     'eind': splitpunt,
                     'dagen': dagen,
+                    'dagen_jaar': jaar_dagen,
                     'hoofdsom': vordering.hoofdsom,
                     'rente_pct': Decimal("0"),
                     'rente': Decimal("0"),
@@ -406,7 +592,7 @@ class RenteCalculator:
                 })
             else:
                 # Normal interest calculation
-                rente = bereken_rente(vordering.hoofdsom, rente_pct, dagen)
+                rente = bereken_rente(vordering.hoofdsom, rente_pct, dagen, jaar_dagen)
                 vordering.opgebouwde_rente += rente
                 vordering.totale_rente += rente
 
@@ -414,6 +600,7 @@ class RenteCalculator:
                     'start': huidige_datum,
                     'eind': splitpunt,
                     'dagen': dagen,
+                    'dagen_jaar': jaar_dagen,
                     'hoofdsom': vordering.hoofdsom,
                     'rente_pct': rente_pct,
                     'rente': rente,

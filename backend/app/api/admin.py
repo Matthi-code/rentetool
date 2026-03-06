@@ -1,8 +1,9 @@
 """
 Admin API routes - restricted to admin and org_admin users
 """
-from typing import List, Literal
-from datetime import datetime
+from typing import List, Literal, Optional
+from datetime import datetime, date
+from decimal import Decimal
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
@@ -897,3 +898,207 @@ async def get_subscription_stats(admin_id: str = Depends(require_admin)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Kon stats niet laden: {e}")
+
+
+# =============================================================================
+# Rentetabel Management Endpoints (Admin only)
+# =============================================================================
+
+class RenteTabelEntry(BaseModel):
+    id: str
+    ingangsdatum: str
+    percentage: float
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class RenteTabelCreate(BaseModel):
+    ingangsdatum: str  # YYYY-MM-DD
+    percentage: float
+
+
+class RenteTabelUpdate(BaseModel):
+    percentage: float
+
+
+def _invalidate_rentetabel_cache():
+    """Invalideer de in-memory rentetabel cache na wijzigingen."""
+    try:
+        from app.services.rente_calculator import get_rentetabel_cache
+        get_rentetabel_cache().invalidate()
+    except Exception as e:
+        logger.warning(f"Kon rentetabel cache niet invalideren: {e}")
+
+
+import logging
+logger = logging.getLogger(__name__)
+
+
+# --- Wettelijke rente ---
+
+@router.get("/rentetabel/wettelijk", response_model=List[RenteTabelEntry])
+async def list_rentetabel_wettelijk(admin_id: str = Depends(require_admin)):
+    """Lijst alle wettelijke rente tarieven."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_wettelijk').select('*').order('ingangsdatum', desc=True).execute()
+        return [RenteTabelEntry(
+            id=r['id'],
+            ingangsdatum=r['ingangsdatum'],
+            percentage=float(r['percentage']),
+            created_at=r.get('created_at'),
+            updated_at=r.get('updated_at'),
+        ) for r in result.data]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tarieven niet laden: {e}")
+
+
+@router.post("/rentetabel/wettelijk", response_model=RenteTabelEntry)
+async def create_rentetabel_wettelijk(entry: RenteTabelCreate, admin_id: str = Depends(require_admin)):
+    """Nieuw wettelijk rente tarief toevoegen."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_wettelijk').insert({
+            'ingangsdatum': entry.ingangsdatum,
+            'percentage': entry.percentage,
+        }).execute()
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Kon tarief niet toevoegen")
+        _invalidate_rentetabel_cache()
+        r = result.data[0]
+        return RenteTabelEntry(
+            id=r['id'],
+            ingangsdatum=r['ingangsdatum'],
+            percentage=float(r['percentage']),
+            created_at=r.get('created_at'),
+            updated_at=r.get('updated_at'),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        if 'duplicate' in str(e).lower() or 'unique' in str(e).lower():
+            raise HTTPException(status_code=409, detail="Er bestaat al een tarief voor deze datum")
+        raise HTTPException(status_code=500, detail=f"Kon tarief niet toevoegen: {e}")
+
+
+@router.put("/rentetabel/wettelijk/{entry_id}", response_model=RenteTabelEntry)
+async def update_rentetabel_wettelijk(entry_id: str, update: RenteTabelUpdate, admin_id: str = Depends(require_admin)):
+    """Wettelijk rente tarief wijzigen."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_wettelijk').update({
+            'percentage': update.percentage,
+            'updated_at': 'now()',
+        }).eq('id', entry_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Tarief niet gevonden")
+        _invalidate_rentetabel_cache()
+        r = result.data[0]
+        return RenteTabelEntry(
+            id=r['id'],
+            ingangsdatum=r['ingangsdatum'],
+            percentage=float(r['percentage']),
+            created_at=r.get('created_at'),
+            updated_at=r.get('updated_at'),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tarief niet wijzigen: {e}")
+
+
+@router.delete("/rentetabel/wettelijk/{entry_id}")
+async def delete_rentetabel_wettelijk(entry_id: str, admin_id: str = Depends(require_admin)):
+    """Wettelijk rente tarief verwijderen."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_wettelijk').delete().eq('id', entry_id).execute()
+        _invalidate_rentetabel_cache()
+        return {"message": "Tarief verwijderd", "success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tarief niet verwijderen: {e}")
+
+
+# --- Handelsrente ---
+
+@router.get("/rentetabel/handels", response_model=List[RenteTabelEntry])
+async def list_rentetabel_handels(admin_id: str = Depends(require_admin)):
+    """Lijst alle handelsrente tarieven."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_handels').select('*').order('ingangsdatum', desc=True).execute()
+        return [RenteTabelEntry(
+            id=r['id'],
+            ingangsdatum=r['ingangsdatum'],
+            percentage=float(r['percentage']),
+            created_at=r.get('created_at'),
+            updated_at=r.get('updated_at'),
+        ) for r in result.data]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tarieven niet laden: {e}")
+
+
+@router.post("/rentetabel/handels", response_model=RenteTabelEntry)
+async def create_rentetabel_handels(entry: RenteTabelCreate, admin_id: str = Depends(require_admin)):
+    """Nieuw handelsrente tarief toevoegen."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_handels').insert({
+            'ingangsdatum': entry.ingangsdatum,
+            'percentage': entry.percentage,
+        }).execute()
+        if not result.data:
+            raise HTTPException(status_code=500, detail="Kon tarief niet toevoegen")
+        _invalidate_rentetabel_cache()
+        r = result.data[0]
+        return RenteTabelEntry(
+            id=r['id'],
+            ingangsdatum=r['ingangsdatum'],
+            percentage=float(r['percentage']),
+            created_at=r.get('created_at'),
+            updated_at=r.get('updated_at'),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        if 'duplicate' in str(e).lower() or 'unique' in str(e).lower():
+            raise HTTPException(status_code=409, detail="Er bestaat al een tarief voor deze datum")
+        raise HTTPException(status_code=500, detail=f"Kon tarief niet toevoegen: {e}")
+
+
+@router.put("/rentetabel/handels/{entry_id}", response_model=RenteTabelEntry)
+async def update_rentetabel_handels(entry_id: str, update: RenteTabelUpdate, admin_id: str = Depends(require_admin)):
+    """Handelsrente tarief wijzigen."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_handels').update({
+            'percentage': update.percentage,
+            'updated_at': 'now()',
+        }).eq('id', entry_id).execute()
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Tarief niet gevonden")
+        _invalidate_rentetabel_cache()
+        r = result.data[0]
+        return RenteTabelEntry(
+            id=r['id'],
+            ingangsdatum=r['ingangsdatum'],
+            percentage=float(r['percentage']),
+            created_at=r.get('created_at'),
+            updated_at=r.get('updated_at'),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tarief niet wijzigen: {e}")
+
+
+@router.delete("/rentetabel/handels/{entry_id}")
+async def delete_rentetabel_handels(entry_id: str, admin_id: str = Depends(require_admin)):
+    """Handelsrente tarief verwijderen."""
+    db = get_db()
+    try:
+        result = db.table('rentetabel_handels').delete().eq('id', entry_id).execute()
+        _invalidate_rentetabel_cache()
+        return {"message": "Tarief verwijderd", "success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kon tarief niet verwijderen: {e}")
