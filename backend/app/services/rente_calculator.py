@@ -492,10 +492,10 @@ class RenteCalculator:
             )
 
             # Bepaal of dit een kapitalisatiemoment is (verjaardag)
+            # Vergelijk met verjaardag() om 29 feb / 28 feb correct af te handelen
             is_verjaardag = (
                 vordering.is_samengesteld and
-                splitpunt.month == vordering.startdatum.month and
-                splitpunt.day == vordering.startdatum.day and
+                splitpunt == verjaardag(vordering.startdatum, splitpunt.year) and
                 splitpunt < tot_datum and
                 not is_in_pauze  # No kapitalisatie during pause
             )
