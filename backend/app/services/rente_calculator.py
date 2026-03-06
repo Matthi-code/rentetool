@@ -23,11 +23,14 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 class RenteTabelCache:
-    """In-memory cache voor rentetabellen uit de database."""
+    """In-memory cache voor rentetabellen uit de database.
+    Wettelijke en handelsrente worden volledig apart bewaard."""
 
     def __init__(self):
-        self._rentetabel: List = None
-        self._rente_wijzigingsdata: List[date] = None
+        self._wettelijk: List = None  # [(datum, percentage), ...] nieuwste eerst
+        self._handels: List = None    # [(datum, percentage), ...] nieuwste eerst
+        self._wijzigingsdata_wettelijk: List[date] = None
+        self._wijzigingsdata_handels: List[date] = None
         self._loaded = False
 
     def _load_from_db(self):
@@ -42,77 +45,69 @@ class RenteTabelCache:
             if not wettelijk.data or not handels.data:
                 raise RuntimeError("Rentetabellen zijn leeg in database. Vul de tabellen via het admin panel.")
 
-            # Bouw een lookup dict voor handelsrente op datum
-            handels_map = {}
-            for row in handels.data:
-                d = date.fromisoformat(row['ingangsdatum'])
-                handels_map[d] = Decimal(str(row['percentage']))
+            # Bouw aparte tabellen (nieuwste eerst)
+            self._wettelijk = [
+                (date.fromisoformat(row['ingangsdatum']), Decimal(str(row['percentage'])))
+                for row in wettelijk.data
+            ]
+            self._handels = [
+                (date.fromisoformat(row['ingangsdatum']), Decimal(str(row['percentage'])))
+                for row in handels.data
+            ]
 
-            # Bouw gecombineerde tabel
-            # Alle unieke data uit beide tabellen
-            alle_data = set()
-            for row in wettelijk.data:
-                alle_data.add(date.fromisoformat(row['ingangsdatum']))
-            for row in handels.data:
-                alle_data.add(date.fromisoformat(row['ingangsdatum']))
+            self._wijzigingsdata_wettelijk = sorted(d for d, _ in self._wettelijk)
+            self._wijzigingsdata_handels = sorted(d for d, _ in self._handels)
 
-            wettelijk_map = {}
-            for row in wettelijk.data:
-                d = date.fromisoformat(row['ingangsdatum'])
-                wettelijk_map[d] = Decimal(str(row['percentage']))
-
-            # Bouw gecombineerde tabel gesorteerd op datum (nieuwste eerst)
-            tabel = []
-            for d in sorted(alle_data, reverse=True):
-                wet = wettelijk_map.get(d)
-                handel = handels_map.get(d)
-                if wet is not None and handel is not None:
-                    tabel.append((d, wet, handel))
-                elif wet is not None:
-                    # Zoek meest recente handelsrente voor deze datum
-                    h = self._find_rate_for_date(handels_map, d)
-                    tabel.append((d, wet, h))
-                elif handel is not None:
-                    # Zoek meest recente wettelijke rente voor deze datum
-                    w = self._find_rate_for_date(wettelijk_map, d)
-                    tabel.append((d, w, handel))
-
-            self._rentetabel = tabel
-            self._rente_wijzigingsdata = sorted(set(d[0] for d in tabel))
             self._loaded = True
-            logger.info(f"Rentetabel geladen uit database: {len(tabel)} entries")
-            return True
+            logger.info(f"Rentetabel geladen uit database: {len(self._wettelijk)} wettelijk, {len(self._handels)} handels entries")
 
         except Exception as e:
             logger.error(f"Kan rentetabel niet laden uit database: {e}")
             raise RuntimeError(f"Kan rentetabel niet laden uit database: {e}")
 
-    def _find_rate_for_date(self, rate_map: Dict[date, Decimal], target: date) -> Decimal:
-        """Zoek het geldende tarief voor een datum in een rate map."""
-        for d in sorted(rate_map.keys(), reverse=True):
-            if target >= d:
-                return rate_map[d]
+    def _ensure_loaded(self):
+        if not self._loaded:
+            self._load_from_db()
+
+    def get_percentage(self, datum: date, is_handelsrente: bool) -> Decimal:
+        """Haal het geldende rentepercentage op voor een datum."""
+        self._ensure_loaded()
+        tabel = self._handels if is_handelsrente else self._wettelijk
+        for rente_datum, pct in tabel:
+            if datum >= rente_datum:
+                return pct
         # Fallback: oudste entry
-        if rate_map:
-            return rate_map[min(rate_map.keys())]
-        return Decimal("0")
+        return tabel[-1][1]
+
+    def get_wijzigingsdata(self, is_handelsrente: bool) -> List[date]:
+        """Haal wijzigingsdata op voor het specifieke rentetype."""
+        self._ensure_loaded()
+        return self._wijzigingsdata_handels if is_handelsrente else self._wijzigingsdata_wettelijk
 
     @property
     def rentetabel(self) -> List:
-        if not self._loaded:
-            self._load_from_db()
-        return self._rentetabel
+        """Gecombineerde tabel voor backwards compatibility (bijv. /api/rentetabel endpoint)."""
+        self._ensure_loaded()
+        # Combineer voor weergave
+        alle_data = set()
+        wet_map = {d: p for d, p in self._wettelijk}
+        hand_map = {d: p for d, p in self._handels}
+        alle_data.update(wet_map.keys())
+        alle_data.update(hand_map.keys())
 
-    @property
-    def rente_wijzigingsdata(self) -> List[date]:
-        if not self._loaded:
-            _ = self.rentetabel  # Trigger load
-        return self._rente_wijzigingsdata
+        tabel = []
+        for d in sorted(alle_data, reverse=True):
+            wet = wet_map.get(d) or self.get_percentage(d, False)
+            hand = hand_map.get(d) or self.get_percentage(d, True)
+            tabel.append((d, wet, hand))
+        return tabel
 
     def invalidate(self):
         """Invalideer de cache zodat de volgende request opnieuw laadt."""
-        self._rentetabel = None
-        self._rente_wijzigingsdata = None
+        self._wettelijk = None
+        self._handels = None
+        self._wijzigingsdata_wettelijk = None
+        self._wijzigingsdata_handels = None
         self._loaded = False
         logger.info("Rentetabel cache geïnvalideerd")
 
@@ -128,32 +123,20 @@ def get_rentetabel_cache() -> RenteTabelCache:
 
 
 def get_rentetabel():
-    """Get de rentetabel (uit cache/database)."""
+    """Get de gecombineerde rentetabel (voor weergave/API)."""
     return _cache.rentetabel
 
 
-def get_rente_wijzigingsdata():
-    """Get de rentewijzigingsdata (uit cache/database)."""
-    return _cache.rente_wijzigingsdata
+def get_rente_wijzigingsdata(is_handelsrente: bool = False):
+    """Get de rentewijzigingsdata voor het specifieke rentetype.
+    Wettelijke en handelsrente hebben aparte wijzigingsdata."""
+    return _cache.get_wijzigingsdata(is_handelsrente)
 
 
 def get_rente_percentage(datum: date, is_handelsrente: bool, opslag: Decimal = Decimal("0")) -> Decimal:
     """Haal het geldende rentepercentage op voor een datum, inclusief eventuele opslag."""
-    tabel = get_rentetabel()
-    for rente_datum, wet, handel in tabel:
-        if datum >= rente_datum:
-            basis = handel if is_handelsrente else wet
-            return basis + opslag
-    basis = tabel[-1][2 if is_handelsrente else 1]
+    basis = _cache.get_percentage(datum, is_handelsrente)
     return basis + opslag
-
-
-def get_volgende_rentewijziging(na_datum: date, voor_datum: date) -> Optional[date]:
-    """Vind de eerstvolgende rentewijzigingsdatum na na_datum en voor voor_datum."""
-    for wijziging in get_rente_wijzigingsdata():
-        if na_datum < wijziging < voor_datum:
-            return wijziging
-    return None
 
 
 # =============================================================================
@@ -384,8 +367,8 @@ class RenteCalculator:
         """
         splitpunten = set()
 
-        # Voeg rentewijzigingsdata toe
-        for wijziging in get_rente_wijzigingsdata():
+        # Voeg rentewijzigingsdata toe (alleen voor het relevante rentetype)
+        for wijziging in get_rente_wijzigingsdata(vordering.is_handelsrente):
             if van_datum < wijziging < tot_datum:
                 splitpunten.add(wijziging)
 
@@ -425,7 +408,7 @@ class RenteCalculator:
 
         # Haal splitpunten op (alleen rentewijzigingen + pauze grenzen, geen kapitalisatie voor kosten)
         splitpunten = []
-        for wijziging in get_rente_wijzigingsdata():
+        for wijziging in get_rente_wijzigingsdata(vordering.is_handelsrente):
             if huidige_datum < wijziging < tot_datum:
                 splitpunten.append(wijziging)
         # Add pause boundaries
