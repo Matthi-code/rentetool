@@ -374,7 +374,7 @@ class RenteCalculator:
 
         # Voeg verjaardagen toe (voor samengestelde rente)
         if vordering.is_samengesteld:
-            jaar = van_datum.year
+            jaar = van_datum.year - 1
             while True:
                 jaar += 1
                 vj = verjaardag(vordering.startdatum, jaar)

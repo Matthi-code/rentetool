@@ -66,3 +66,18 @@ else:
 ```
 
 **Bron:** Wettelijke regelgeving art. 6:119 lid 2 BW + eigen ervaring
+
+---
+
+## 2026-03-06 — Verjaardag-splitpunt: zoek vanaf hetzelfde jaar
+
+**Situatie:**
+Na een betaling kort vóór de verjaardag werd de kapitalisatiedatum in datzelfde kalenderjaar overgeslagen. De loop in `get_splitpunten()` begon bij `van_datum.year + 1`, waardoor een verjaardag later in hetzelfde jaar niet gevonden werd.
+
+**Oplossing:**
+Start de verjaardagen-loop bij `van_datum.year - 1` (zodat na `+= 1` het huidige jaar als eerste wordt gecheckt). De `if vj > van_datum` check voorkomt dubbele splits.
+
+**Sanity check:**
+Een renteperiode mag NOOIT meer dagen hebben dan het kapitalisatiejaar (max 366). Als `dagen > dagen_jaar` (bijv. 370/365), is er een verjaardag overgeslagen. Dit is altijd een bug.
+
+**Bron:** Eigen ervaring — betaling op 01-03 gevolgd door verjaardag op 06-03 werd gemist
