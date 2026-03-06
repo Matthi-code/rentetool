@@ -309,8 +309,38 @@ def heeft_schrikkeldag(start: date, eind: date) -> bool:
 
 def dagen_in_jaar(start: date, eind: date) -> int:
     """Bepaal het aantal dagen van het jaar voor een renteperiode.
-    Als er een 29 februari in de periode valt, is het 366, anders 365."""
+    Als er een 29 februari in de periode valt, is het 366, anders 365.
+    NB: Dit is de fallback voor enkelvoudige rente / kosten.
+    Voor samengestelde rente, gebruik dagen_in_kapitalisatiejaar()."""
     return 366 if heeft_schrikkeldag(start, eind) else 365
+
+
+def dagen_in_kapitalisatiejaar(vordering_startdatum: date, subperiode_start: date) -> int:
+    """Bepaal het aantal dagen in het kapitalisatiejaar waar een subperiode bij hoort.
+
+    Het kapitalisatiejaar loopt van verjaardag tot verjaardag.
+    Alle subperiodes binnen hetzelfde kapitalisatiejaar delen door hetzelfde getal.
+
+    Voorbeeld: vordering start 2-2-2024
+    - Kapitalisatiejaar 1: 2-2-2024 t/m 2-2-2025 = 366 dagen (29 feb zit erin)
+    - Alle subperiodes in dat jaar delen door 366
+    """
+    # Vind de start van het huidige kapitalisatiejaar
+    # (de meest recente verjaardag op of vóór subperiode_start)
+    jaar = subperiode_start.year
+    vj_dit_jaar = verjaardag(vordering_startdatum, jaar)
+
+    if vj_dit_jaar > subperiode_start:
+        # De verjaardag dit jaar is nog niet geweest, dus we zitten in het vorige kapitalisatiejaar
+        kap_jaar_start = verjaardag(vordering_startdatum, jaar - 1)
+    else:
+        kap_jaar_start = vj_dit_jaar
+
+    # Eind van het kapitalisatiejaar is de volgende verjaardag
+    kap_jaar_eind = verjaardag(vordering_startdatum, kap_jaar_start.year + 1)
+
+    # Bereken het aantal dagen in dit kapitalisatiejaar
+    return (kap_jaar_eind - kap_jaar_start).days
 
 
 def bereken_rente(hoofdsom: Decimal, rente_pct: Decimal, dagen: int, dagen_jaar: int = 365) -> Decimal:
@@ -504,7 +534,12 @@ class RenteCalculator:
             dagen = (splitpunt - huidige_datum).days
             rente_pct = vordering.get_rente_pct(huidige_datum)
 
-            jaar_dagen = dagen_in_jaar(huidige_datum, splitpunt)
+            # Samengestelde rente: dagen_jaar is gebaseerd op het kapitalisatiejaar
+            # Enkelvoudige rente: dagen_jaar is gebaseerd op de subperiode zelf
+            if vordering.is_samengesteld:
+                jaar_dagen = dagen_in_kapitalisatiejaar(vordering.startdatum, huidige_datum)
+            else:
+                jaar_dagen = dagen_in_jaar(huidige_datum, splitpunt)
 
             if is_in_pauze:
                 # No interest during pause
