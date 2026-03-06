@@ -453,12 +453,24 @@ def _build_vorderingen_invoer_table(vorderingen: List[Dict], styles) -> Table:
         if opslag:
             rentetype += f" +{format_percentage(opslag)}"
 
+        # Betaaltermijn toevoegen aan datum weergave
+        datum_str = format_datum(v.get("datum", ""))
+        betaaltermijn = v.get("betaaltermijn_dagen", 0)
+        if betaaltermijn and betaaltermijn > 0:
+            datum_str += f"\n+{betaaltermijn}d"
+
+        # Kosten categorie toevoegen als label
+        kosten_str = format_bedrag(v.get("kosten", 0))
+        kosten_cat = v.get("kosten_categorie")
+        if kosten_cat:
+            kosten_str = f"{kosten_cat}\n{kosten_str}" if float(v.get("kosten", 0)) > 0 else kosten_cat
+
         data.append([
             v.get("kenmerk", ""),
             Paragraph(format_bedrag(v.get("bedrag", 0)), mono_style),
-            format_datum(v.get("datum", "")),
+            datum_str,
             rentetype,
-            Paragraph(format_bedrag(v.get("kosten", 0)), mono_style)
+            Paragraph(kosten_str, mono_style) if not kosten_cat else kosten_str
         ])
 
     # Full width: 18cm
@@ -695,7 +707,7 @@ def _build_vordering_specification(v: Dict, vord_input: Dict, deelbetalingen: Li
             data.append([
                 icon_cell,
                 periode_str,
-                str(p.get("dagen", 0)),
+                f'{p.get("dagen", 0)}/{p.get("dagen_jaar", 365)}',
                 format_bedrag(p.get("hoofdsom", 0)),
                 format_percentage(p.get("rente_pct", 0)),
                 format_bedrag(p.get("rente", 0))

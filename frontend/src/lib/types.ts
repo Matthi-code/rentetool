@@ -19,6 +19,9 @@ export interface Vordering {
   opslag_ingangsdatum?: string;
   pauze_start?: string;
   pauze_eind?: string;
+  betaaltermijn_dagen?: number;
+  bodemrente?: number;
+  kosten_categorie?: string;
 }
 
 export interface VorderingCreate {
@@ -33,6 +36,9 @@ export interface VorderingCreate {
   opslag_ingangsdatum?: string;
   pauze_start?: string;
   pauze_eind?: string;
+  betaaltermijn_dagen?: number;
+  bodemrente?: number;
+  kosten_categorie?: string;
 }
 
 export interface Deelbetaling {
@@ -85,6 +91,7 @@ export interface Case {
   klant_referentie?: string;
   einddatum: string;
   strategie: 'A' | 'B';
+  default_betaaltermijn?: number;
   created_at: string;
   updated_at: string;
   // Optional counts for list view
@@ -99,6 +106,7 @@ export interface CaseCreate {
   klant_referentie?: string;
   einddatum: string;
   strategie: 'A' | 'B';
+  default_betaaltermijn?: number;
 }
 
 export interface CaseWithLines extends Case {
@@ -112,17 +120,20 @@ export interface Periode {
   start: string;
   eind: string;
   dagen: number;
+  dagen_jaar: number;
   hoofdsom: number;
   rente_pct: number;
   rente: number;
   is_kapitalisatie: boolean;
   is_pauze?: boolean;
+  is_betaaltermijn?: boolean;
 }
 
 export interface PeriodeKosten {
   start: string;
   eind: string;
   dagen: number;
+  dagen_jaar: number;
   kosten: number;
   rente_pct: number;
   rente: number;
@@ -228,6 +239,17 @@ export const RENTETYPE_SHORT: Record<number, string> = {
   6: 'Wett. +',
   7: 'Hand. +',
 };
+
+export const KOSTEN_CATEGORIEEN = [
+  'Kosten deurwaarder',
+  'Griffierecht',
+  'Liquidatietarief',
+  'Nasalaris',
+  'Kosten juridische bijstand',
+  'Kosten deskundigen',
+  'BIK',
+  'Overig',
+] as const;
 
 export const STRATEGIE_LABELS: Record<string, string> = {
   A: 'Meest bezwarend (art. 6:43 BW)',

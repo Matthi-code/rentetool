@@ -16,6 +16,7 @@ class CaseBase(BaseModel):
     klant_referentie: Optional[str] = Field(default=None, max_length=255, description="Optional client reference number")
     einddatum: date = Field(default_factory=date.today, description="End date for calculation")
     strategie: str = Field(default="A", pattern="^[AB]$", description="Payment allocation strategy (A or B)")
+    default_betaaltermijn: int = Field(default=0, ge=0, description="Default betaaltermijn in dagen voor nieuwe vorderingen")
 
 
 class CaseCreate(CaseBase):

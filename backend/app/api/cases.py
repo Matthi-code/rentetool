@@ -195,6 +195,7 @@ async def create_case(case: CaseCreate, user_id: str = Depends(get_current_user)
         'klant_referentie': case.klant_referentie,
         'einddatum': str(case.einddatum),
         'strategie': case.strategie,
+        'default_betaaltermijn': case.default_betaaltermijn,
     }
 
     response = db.table('cases').insert(case_data).execute()
@@ -336,6 +337,7 @@ async def update_case(case_id: str, case: CaseCreate, user_id: str = Depends(get
         'klant_referentie': case.klant_referentie,
         'einddatum': str(case.einddatum),
         'strategie': case.strategie,
+        'default_betaaltermijn': case.default_betaaltermijn,
     }
 
     response = db.table('cases').update(update_data).eq('id', case_id).execute()
@@ -395,6 +397,9 @@ async def create_vordering(case_id: str, vordering: VorderingCreate, user_id: st
         'opslag_ingangsdatum': str(vordering.opslag_ingangsdatum) if vordering.opslag_ingangsdatum else None,
         'pauze_start': str(vordering.pauze_start) if vordering.pauze_start else None,
         'pauze_eind': str(vordering.pauze_eind) if vordering.pauze_eind else None,
+        'betaaltermijn_dagen': vordering.betaaltermijn_dagen,
+        'bodemrente': float(vordering.bodemrente) if vordering.bodemrente else None,
+        'kosten_categorie': vordering.kosten_categorie,
         'volgorde': next_volgorde,
     }
 
@@ -440,6 +445,9 @@ async def update_vordering(vordering_id: str, vordering: VorderingCreate, user_i
         'opslag_ingangsdatum': str(vordering.opslag_ingangsdatum) if vordering.opslag_ingangsdatum else None,
         'pauze_start': str(vordering.pauze_start) if vordering.pauze_start else None,
         'pauze_eind': str(vordering.pauze_eind) if vordering.pauze_eind else None,
+        'betaaltermijn_dagen': vordering.betaaltermijn_dagen,
+        'bodemrente': float(vordering.bodemrente) if vordering.bodemrente else None,
+        'kosten_categorie': vordering.kosten_categorie,
     }
 
     print(f"Update data being sent to DB: {update_data}")

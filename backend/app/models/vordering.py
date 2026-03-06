@@ -24,6 +24,9 @@ class VorderingBase(BaseModel):
     opslag_ingangsdatum: Optional[date] = Field(default=None, description="Start date for surcharge")
     pauze_start: Optional[date] = Field(default=None, description="Start date of interest pause")
     pauze_eind: Optional[date] = Field(default=None, description="End date of interest pause")
+    betaaltermijn_dagen: int = Field(default=0, ge=0, description="Payment term in days before interest starts")
+    bodemrente: Optional[Decimal] = Field(default=None, ge=0, le=1, description="Minimum interest rate (e.g., 0.03 for 3%)")
+    kosten_categorie: Optional[str] = Field(default=None, description="Cost category label for PDF output")
 
 
 class VorderingCreate(VorderingBase):

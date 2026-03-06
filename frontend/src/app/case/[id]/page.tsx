@@ -50,6 +50,7 @@ import {
   getSnapshotPdf,
   logUsage,
   leaveSharedCase,
+  berekenRenteExcel,
 } from '@/lib/api';
 import { formatBedrag, formatBedragParts, formatDatum, formatDatumTm, formatPercentage, getToday } from '@/lib/format';
 import { useAuth } from '@/lib/auth-context';
@@ -59,9 +60,11 @@ import { useSubscription } from '@/lib/subscription-context';
 import { ProBadge } from '@/components/pro-badge';
 import { UpgradeModal } from '@/components/upgrade-modal';
 import { TierLimitBanner } from '@/components/tier-limit-banner';
+import { BikDialog } from '@/components/bik-dialog';
 import {
   RENTETYPE_LABELS,
   RENTETYPE_SHORT,
+  KOSTEN_CATEGORIEEN,
   type ItemType,
   type CaseWithLines,
   type Vordering,
@@ -104,6 +107,7 @@ export default function CaseDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingExcel, setGeneratingExcel] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [result, setResult] = useState<BerekeningResponse | null>(null);
@@ -120,6 +124,7 @@ export default function CaseDetailPage() {
   // Local state for controlled inputs
   const [localReference, setLocalReference] = useState<string>('');
   const [localEinddatum, setLocalEinddatum] = useState<string>('');
+  const [localDefaultBetaaltermijn, setLocalDefaultBetaaltermijn] = useState<string>('0');
 
   // Vordering form
   const [vorderingForm, setVorderingForm] = useState({
@@ -134,6 +139,9 @@ export default function CaseDetailPage() {
     opslag_ingangsdatum: '',
     pauze_start: '',
     pauze_eind: '',
+    betaaltermijn_dagen: '',
+    bodemrente: '',
+    kosten_categorie: '',
   });
 
   // Deelbetaling form
@@ -143,6 +151,9 @@ export default function CaseDetailPage() {
     datum: getToday(),
     aangewezen: [] as string[],
   });
+
+  // BIK dialog state
+  const [bikDialogOpen, setBikDialogOpen] = useState(false);
 
   // Leave shared case state
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
@@ -195,6 +206,9 @@ export default function CaseDetailPage() {
       opslag_ingangsdatum: '',
       pauze_start: '',
       pauze_eind: '',
+      betaaltermijn_dagen: caseData?.default_betaaltermijn ? String(caseData.default_betaaltermijn) : '',
+      bodemrente: '',
+      kosten_categorie: '',
     });
     setEditingVordering(null);
     setPauzeExpanded(false);
@@ -298,6 +312,29 @@ export default function CaseDetailPage() {
     }
   }
 
+  async function handleBikApply(bikBedrag: number) {
+    if (!caseData) return;
+    try {
+      const data = {
+        item_type: 'kosten' as ItemType,
+        kenmerk: `BIK-${Date.now().toString(36).slice(-4).toUpperCase()}`,
+        bedrag: bikBedrag,
+        datum: getToday(),
+        rentetype: 1,
+        kosten_categorie: 'BIK',
+      };
+      const created = await createVordering(caseId, data);
+      setCaseData({
+        ...caseData,
+        vorderingen: [...caseData.vorderingen, created],
+      });
+      setResult(null);
+    } catch (err) {
+      console.error(err);
+      setError('Kon BIK kostenpost niet aanmaken');
+    }
+  }
+
   const loadCase = useCallback(async () => {
     try {
       const data = await getCase(caseId);
@@ -325,6 +362,7 @@ export default function CaseDetailPage() {
     if (caseData) {
       setLocalReference(caseData.klant_referentie || '');
       setLocalEinddatum(caseData.einddatum || '');
+      setLocalDefaultBetaaltermijn(String(caseData.default_betaaltermijn || 0));
     }
   }, [caseData]);
 
@@ -405,6 +443,28 @@ export default function CaseDetailPage() {
     document.body.removeChild(a);
   }
 
+  async function handleExcelExport() {
+    if (!caseData || caseData.vorderingen.length === 0) return;
+    setGeneratingExcel(true);
+    setError(null);
+    try {
+      const blob = await berekenRenteExcel(caseData);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `renteberekening-${caseData.naam.replace(/[^a-zA-Z0-9]/g, '-')}-${caseData.einddatum}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Excel genereren mislukt');
+      console.error(err);
+    } finally {
+      setGeneratingExcel(false);
+    }
+  }
+
   function closePdfPreview() {
     setPdfPreviewOpen(false);
     // Clean up URL after a delay to allow animation
@@ -424,6 +484,7 @@ export default function CaseDetailPage() {
         klant_referentie: caseData.klant_referentie,
         einddatum,
         strategie: caseData.strategie,
+        default_betaaltermijn: caseData.default_betaaltermijn || 0,
       });
       setCaseData({ ...caseData, einddatum });
       setResult(null);
@@ -440,6 +501,7 @@ export default function CaseDetailPage() {
         klant_referentie: klant_referentie || undefined,
         einddatum: caseData.einddatum,
         strategie: caseData.strategie,
+        default_betaaltermijn: caseData.default_betaaltermijn || 0,
       });
       setCaseData({ ...caseData, klant_referentie: klant_referentie || undefined });
     } catch (err) {
@@ -447,6 +509,23 @@ export default function CaseDetailPage() {
     }
   }
 
+
+  async function handleUpdateDefaultBetaaltermijn(value: string) {
+    if (!caseData) return;
+    const numValue = parseInt(value) || 0;
+    try {
+      await updateCase(caseId, {
+        naam: caseData.naam,
+        klant_referentie: caseData.klant_referentie,
+        einddatum: caseData.einddatum,
+        strategie: caseData.strategie,
+        default_betaaltermijn: numValue,
+      });
+      setCaseData({ ...caseData, default_betaaltermijn: numValue });
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   // Open dialog for adding new vordering
   function openAddVordering() {
@@ -470,6 +549,9 @@ export default function CaseDetailPage() {
       opslag_ingangsdatum: v.opslag_ingangsdatum || '',
       pauze_start: v.pauze_start || '',
       pauze_eind: v.pauze_eind || '',
+      betaaltermijn_dagen: v.betaaltermijn_dagen ? String(v.betaaltermijn_dagen) : '',
+      bodemrente: v.bodemrente ? String(Number(v.bodemrente) * 100) : '',
+      kosten_categorie: v.kosten_categorie || '',
     });
     // Expand pauze section if there are pause dates
     setPauzeExpanded(!!(v.pauze_start || v.pauze_eind));
@@ -491,6 +573,9 @@ export default function CaseDetailPage() {
       opslag_ingangsdatum: vorderingForm.opslag_ingangsdatum || undefined,
       pauze_start: vorderingForm.pauze_start || undefined,
       pauze_eind: vorderingForm.pauze_eind || undefined,
+      betaaltermijn_dagen: vorderingForm.betaaltermijn_dagen ? parseInt(vorderingForm.betaaltermijn_dagen) : 0,
+      bodemrente: vorderingForm.bodemrente ? parseFloat(vorderingForm.bodemrente) / 100 : undefined,
+      kosten_categorie: vorderingForm.kosten_categorie || undefined,
     };
 
     console.log('Saving vordering with data:', data);
@@ -746,6 +831,32 @@ export default function CaseDetailPage() {
                 <>PDF</>
               )}
             </Button>
+            {isFree ? (
+              <Button
+                size="lg"
+                variant="outline"
+                className="shadow-sm gap-1.5"
+                onClick={() => { setUpgradeFeature('excel'); setUpgradeModalOpen(true); }}
+                disabled={caseData.vorderingen.length === 0}
+              >
+                Excel <ProBadge />
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={handleExcelExport}
+                disabled={generatingExcel || caseData.vorderingen.length === 0}
+                className="shadow-sm"
+                title="Excel downloaden"
+              >
+                {generatingExcel ? (
+                  <span className="animate-spin">⟳</span>
+                ) : (
+                  <>Excel</>
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -766,6 +877,7 @@ export default function CaseDetailPage() {
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Referentie</TableHead>
                 <TableHead className="font-semibold">Einddatum berekening</TableHead>
+                <TableHead className="font-semibold">Standaard betaaltermijn</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -798,6 +910,25 @@ export default function CaseDetailPage() {
                     disabled={!canEdit}
                   />
                 </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={localDefaultBetaaltermijn}
+                      onChange={(e) => setLocalDefaultBetaaltermijn(e.target.value)}
+                      onBlur={() => {
+                        if (localDefaultBetaaltermijn !== String(caseData.default_betaaltermijn || 0)) {
+                          handleUpdateDefaultBetaaltermijn(localDefaultBetaaltermijn);
+                        }
+                      }}
+                      className="h-9 w-20"
+                      disabled={!canEdit}
+                      placeholder="0"
+                    />
+                    <span className="text-sm text-muted-foreground">dagen</span>
+                  </div>
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -818,15 +949,26 @@ export default function CaseDetailPage() {
             />
           </div>
           {canEdit && !showInlineVordering && (
-            maxVorderingen !== null && caseData.vorderingen.length >= maxVorderingen ? (
-              <Button size="sm" className="shadow-sm gap-1.5" onClick={() => { setUpgradeFeature('vorderingen'); setUpgradeModalOpen(true); }}>
-                + Toevoegen <ProBadge />
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
-                + Toevoegen
-              </Button>
-            )
+            <div className="flex gap-2">
+              {isFree ? (
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { setUpgradeFeature('bik'); setUpgradeModalOpen(true); }}>
+                  BIK <ProBadge />
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setBikDialogOpen(true)}>
+                  BIK
+                </Button>
+              )}
+              {maxVorderingen !== null && caseData.vorderingen.length >= maxVorderingen ? (
+                <Button size="sm" className="shadow-sm gap-1.5" onClick={() => { setUpgradeFeature('vorderingen'); setUpgradeModalOpen(true); }}>
+                  + Toevoegen <ProBadge />
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
+                  + Toevoegen
+                </Button>
+              )}
+            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -895,7 +1037,12 @@ export default function CaseDetailPage() {
                           <span className="tabular-nums text-right" style={{minWidth: '5rem'}}>{formatBedragParts(v.bedrag).amount}</span>
                         </span>
                       </TableCell>
-                      <TableCell className="font-mono">{formatDatum(v.datum)}</TableCell>
+                      <TableCell className="font-mono">
+                        {formatDatum(v.datum)}
+                        {v.betaaltermijn_dagen ? (
+                          <span className="text-xs text-muted-foreground ml-1" title={`Betaaltermijn: ${v.betaaltermijn_dagen} dagen`}>+{v.betaaltermijn_dagen}d</span>
+                        ) : null}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="font-normal" title={RENTETYPE_LABELS[v.rentetype]}>
                           {RENTETYPE_SHORT[v.rentetype]}
@@ -1550,6 +1697,24 @@ export default function CaseDetailPage() {
 
                       {v.periodes.length > 0 && (
                         <div>
+                          {(() => {
+                            const origVordering = caseData.vorderingen.find(ov => ov.kenmerk === v.kenmerk);
+                            if (origVordering?.betaaltermijn_dagen && origVordering.betaaltermijn_dagen > 0) {
+                              const factuurdatum = new Date(origVordering.datum);
+                              const rentestartdatum = new Date(factuurdatum);
+                              rentestartdatum.setDate(rentestartdatum.getDate() + origVordering.betaaltermijn_dagen);
+                              return (
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-2 text-sm flex items-center gap-4 flex-wrap">
+                                  <span>Factuurdatum: <strong className="font-mono">{formatDatum(origVordering.datum)}</strong></span>
+                                  <span className="text-muted-foreground">|</span>
+                                  <span>Betaaltermijn: <strong>{origVordering.betaaltermijn_dagen} dagen</strong></span>
+                                  <span className="text-muted-foreground">|</span>
+                                  <span>Rente start: <strong className="font-mono">{formatDatum(rentestartdatum.toISOString().split('T')[0])}</strong></span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Renteperiodes</div>
                           <div className="border rounded-lg overflow-hidden">
                           <Table>
@@ -1593,16 +1758,17 @@ export default function CaseDetailPage() {
 
                                   return (
                                     <React.Fragment key={i}>
-                                      <TableRow className={p.is_pauze ? 'bg-orange-50' : p.is_kapitalisatie ? 'bg-blue-50' : ''}>
+                                      <TableRow className={p.is_betaaltermijn ? 'bg-slate-50' : p.is_pauze ? 'bg-orange-50' : p.is_kapitalisatie ? 'bg-blue-50' : ''}>
                                         <TableCell className="font-mono">
                                           {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
+                                          {p.is_betaaltermijn && <span className="ml-1 text-slate-500 font-medium text-xs">vervaltermijn</span>}
                                           {p.is_pauze && <span className="ml-1 text-orange-500 font-medium">⏸</span>}
                                           {p.is_kapitalisatie && <span className="ml-1 text-blue-600 font-medium">↻</span>}
                                         </TableCell>
-                                        <TableCell className="text-right font-mono">{p.dagen}</TableCell>
+                                        <TableCell className="text-right font-mono">{p.dagen}<span className="text-muted-foreground">/{p.dagen_jaar || 365}</span></TableCell>
                                         <TableCell className="text-right font-mono">{formatBedrag(p.hoofdsom)}</TableCell>
-                                        <TableCell className="text-right font-mono">{p.is_pauze ? <span className="text-orange-500">geschorst</span> : formatPercentage(p.rente_pct)}</TableCell>
-                                        <TableCell className="text-right font-mono">{formatBedrag(p.rente)}</TableCell>
+                                        <TableCell className="text-right font-mono">{p.is_betaaltermijn ? <span className="text-slate-400">—</span> : p.is_pauze ? <span className="text-orange-500">geschorst</span> : formatPercentage(p.rente_pct)}</TableCell>
+                                        <TableCell className="text-right font-mono">{p.is_betaaltermijn ? <span className="text-slate-400">—</span> : formatBedrag(p.rente)}</TableCell>
                                       </TableRow>
                                       {betalingOpEinddatum && toerekeningen.length > 0 && (() => {
                                         const renteAfgelost = toerekeningen
@@ -1702,7 +1868,7 @@ export default function CaseDetailPage() {
                                       {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
                                       {p.is_pauze && <span className="ml-1 text-orange-500 font-medium">⏸</span>}
                                     </TableCell>
-                                    <TableCell className="text-right font-mono">{p.dagen}</TableCell>
+                                    <TableCell className="text-right font-mono">{p.dagen}<span className="text-muted-foreground">/{p.dagen_jaar || 365}</span></TableCell>
                                     <TableCell className="text-right font-mono">{formatBedrag(p.kosten)}</TableCell>
                                     <TableCell className="text-right font-mono">{p.is_pauze ? <span className="text-orange-500">geschorst</span> : formatPercentage(p.rente_pct)}</TableCell>
                                     <TableCell className="text-right font-mono">{formatBedrag(p.rente)}</TableCell>
@@ -1856,6 +2022,38 @@ export default function CaseDetailPage() {
                 </SelectContent>
               </Select>
             </div>
+            {/* Betaaltermijn */}
+            <div>
+              <label className="text-sm font-medium">Betaaltermijn (dagen)</label>
+              <Input
+                type="number"
+                min="0"
+                value={vorderingForm.betaaltermijn_dagen}
+                onChange={(e) => setVorderingForm({ ...vorderingForm, betaaltermijn_dagen: e.target.value })}
+                placeholder="0"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Rente begint pas na deze termijn (art. 6:119a BW)</p>
+            </div>
+            {/* Kosten-categorie (alleen bij item_type kosten) */}
+            {vorderingForm.item_type === 'kosten' && (
+              <div>
+                <label className="text-sm font-medium">Categorie</label>
+                <Select
+                  value={vorderingForm.kosten_categorie || '_none'}
+                  onValueChange={(v) => setVorderingForm({ ...vorderingForm, kosten_categorie: v === '_none' ? '' : v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kies categorie..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Geen categorie</SelectItem>
+                    {KOSTEN_CATEGORIEEN.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {/* Pauze sectie - Collapsible (Pro only) */}
             <div className="border rounded-lg overflow-hidden">
               <button
@@ -1928,26 +2126,39 @@ export default function CaseDetailPage() {
               </div>
             )}
             {(vorderingForm.rentetype === 6 || vorderingForm.rentetype === 7) && (
-              <div className="grid grid-cols-2 gap-4">
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Opslag %</label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={vorderingForm.opslag}
+                      onChange={(e) => setVorderingForm({ ...vorderingForm, opslag: e.target.value })}
+                      placeholder="2"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Opslag vanaf</label>
+                    <Input
+                      type="date"
+                      value={vorderingForm.opslag_ingangsdatum}
+                      onChange={(e) => setVorderingForm({ ...vorderingForm, opslag_ingangsdatum: e.target.value })}
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="text-sm font-medium">Opslag %</label>
+                  <label className="text-sm font-medium">Minimum rente %</label>
                   <Input
                     type="number"
                     step="0.1"
-                    value={vorderingForm.opslag}
-                    onChange={(e) => setVorderingForm({ ...vorderingForm, opslag: e.target.value })}
-                    placeholder="2"
+                    value={vorderingForm.bodemrente}
+                    onChange={(e) => setVorderingForm({ ...vorderingForm, bodemrente: e.target.value })}
+                    placeholder="Bijv. 3"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Bodemrente: rente daalt nooit onder dit percentage</p>
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Opslag vanaf</label>
-                  <Input
-                    type="date"
-                    value={vorderingForm.opslag_ingangsdatum}
-                    onChange={(e) => setVorderingForm({ ...vorderingForm, opslag_ingangsdatum: e.target.value })}
-                  />
-                </div>
-              </div>
+              </>
             )}
           </div>
           <DialogFooter>
@@ -1955,6 +2166,8 @@ export default function CaseDetailPage() {
               Annuleren
             </Button>
             <Button
+              size="lg"
+              className="text-base px-8"
               onClick={handleSaveVordering}
               disabled={
                 savingVordering ||
@@ -1970,7 +2183,7 @@ export default function CaseDetailPage() {
                   Bezig...
                 </>
               ) : (
-                editingVordering ? 'Opslaan' : 'Toevoegen'
+                editingVordering ? 'Vordering opslaan' : 'Vordering toevoegen'
               )}
             </Button>
           </DialogFooter>
@@ -2158,6 +2371,13 @@ export default function CaseDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* BIK Dialog */}
+      <BikDialog
+        open={bikDialogOpen}
+        onOpenChange={setBikDialogOpen}
+        onApply={handleBikApply}
+      />
 
       {/* Upgrade Modal */}
       <UpgradeModal

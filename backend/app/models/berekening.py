@@ -24,6 +24,9 @@ class VorderingInput(BaseModel):
     opslag_ingangsdatum: Optional[date] = None
     pauze_start: Optional[date] = None
     pauze_eind: Optional[date] = None
+    betaaltermijn_dagen: int = 0
+    bodemrente: Optional[Decimal] = None
+    kosten_categorie: Optional[str] = None
 
 
 class DeelbetalingInput(BaseModel):
@@ -47,11 +50,13 @@ class Periode(BaseModel):
     start: date
     eind: date
     dagen: int
+    dagen_jaar: int = 365
     hoofdsom: Decimal
     rente_pct: Decimal
     rente: Decimal
     is_kapitalisatie: bool = False
     is_pauze: bool = False
+    is_betaaltermijn: bool = False
 
 
 class PeriodeKosten(BaseModel):
@@ -59,6 +64,7 @@ class PeriodeKosten(BaseModel):
     start: date
     eind: date
     dagen: int
+    dagen_jaar: int = 365
     kosten: Decimal
     rente_pct: Decimal
     rente: Decimal
