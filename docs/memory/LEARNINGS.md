@@ -40,3 +40,29 @@
 - **Observatie:** Chrome heeft soms login/backend problemen, Brave en Firefox niet
 - **Mogelijke oorzaken:** Agressieve caching, service workers, cookies
 - **Nog onderzoeken:** Exacte oorzaak bepalen
+
+---
+
+## 2026-03-06 — dagen_jaar moet op kapitalisatiejaar gebaseerd zijn
+
+**Situatie:**
+Bij samengestelde rente werd `dagen_jaar` (365 of 366) bepaald per subperiode: zit er een 29 feb in de subperiode? Maar dat is fout. Een kapitalisatiejaar loopt van verjaardag tot verjaardag, en alle subperiodes daarbinnen moeten door hetzelfde getal delen.
+
+**Oplossing:**
+Nieuwe functie `dagen_in_kapitalisatiejaar(vordering_startdatum, subperiode_start)` die het kapitalisatiejaar bepaalt en het aantal dagen daarin telt. Wordt gebruikt voor samengestelde rente (types 1, 2). Enkelvoudige rente blijft per subperiode.
+
+**Gotcha:**
+- Een vordering met startdatum 2-2-2024 heeft kapitalisatiejaar 2-2-2024 t/m 2-2-2025 = 366 dagen
+- Subperiode 1-7-2024 t/m 2-2-2025 bevat zelf geen 29 feb, maar deelt toch door 366 (want het kapitalisatiejaar bevat die wel)
+- Bij startdatum 29 feb: verjaardag in niet-schrikkeljaar is 28 feb
+
+**Code voorbeeld:**
+```python
+# Samengestelde rente: kapitalisatiejaar bepaalt dagen_jaar
+if vordering.is_samengesteld:
+    jaar_dagen = dagen_in_kapitalisatiejaar(vordering.startdatum, huidige_datum)
+else:
+    jaar_dagen = dagen_in_jaar(huidige_datum, splitpunt)
+```
+
+**Bron:** Wettelijke regelgeving art. 6:119 lid 2 BW + eigen ervaring
