@@ -469,7 +469,13 @@ export default function Dashboard() {
       {cases.length === 0 || isFree ? (
         <Card className="border-dashed border-2">
           <CardContent className="py-16 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <div
+              className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-colors"
+              onClick={() => setDialogOpen(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setDialogOpen(true); }}
+            >
               <span className="text-3xl text-primary">+</span>
             </div>
             <h3 className="font-serif text-xl font-semibold text-primary mb-2">
