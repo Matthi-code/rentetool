@@ -36,6 +36,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useSubscription } from '@/lib/subscription-context';
 import { SharedBadge } from '@/components/shared-badge';
 import { ProBadge } from '@/components/pro-badge';
+import { useIsMobile } from '@/lib/use-mobile';
 import type { Case } from '@/lib/types';
 
 type ViewMode = 'cards' | 'table';
@@ -48,20 +49,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { isFree, tier } = useSubscription();
-  const [cases, setCases] = useState<Case[]>(() => {
-    // Load cached cases for instant display
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('cachedCases');
-      if (cached) {
-        try {
-          return JSON.parse(cached);
-        } catch {
-          return [];
-        }
-      }
-    }
-    return [];
-  });
+  const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +81,20 @@ export default function Dashboard() {
   // Leave shared case state
   const [leaveConfirmId, setLeaveConfirmId] = useState<string | null>(null);
   const [isLeaving, setIsLeaving] = useState(false);
+
+  const isMobile = useIsMobile();
+
+  // Load cached cases from localStorage on mount (after hydration)
+  useEffect(() => {
+    const cached = localStorage.getItem('cachedCases');
+    if (cached) {
+      try {
+        setCases(JSON.parse(cached));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
 
   // Load view mode from localStorage on mount
   useEffect(() => {
@@ -386,7 +388,7 @@ export default function Dashboard() {
 
           {/* Ownership filter */}
           <Select value={ownershipFilter} onValueChange={(v) => setOwnershipFilter(v as OwnershipFilter)}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
             <SelectContent>
@@ -498,7 +500,7 @@ export default function Dashboard() {
             </Button>
           </CardContent>
         </Card>
-      ) : viewMode === 'cards' ? (
+      ) : (isMobile || viewMode === 'cards') ? (
         /* Card View */
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredCases.map((c) => (

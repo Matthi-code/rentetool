@@ -71,6 +71,7 @@ import {
   type Deelbetaling,
   type BerekeningResponse,
 } from '@/lib/types';
+import { useIsMobile } from '@/lib/use-mobile';
 
 function VorderingenSummary({ vorderingen }: { vorderingen: Vordering[] }) {
   if (vorderingen.length === 0) {
@@ -171,6 +172,13 @@ export default function CaseDetailPage() {
   // Pauze section expanded state
   const [pauzeExpanded, setPauzeExpanded] = useState(false);
 
+  // Mobile detection
+  const isMobile = useIsMobile();
+
+  // Mobile action overflow menu
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const mobileActionsRef = useRef<HTMLDivElement>(null);
+
   // Inline add states
   const [showInlineVordering, setShowInlineVordering] = useState(false);
   const [showInlineDeelbetaling, setShowInlineDeelbetaling] = useState(false);
@@ -189,9 +197,24 @@ export default function CaseDetailPage() {
     aangewezen: [] as string[],
   });
 
+  // Close mobile actions on click outside
+  useEffect(() => {
+    if (!mobileActionsOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (mobileActionsRef.current && !mobileActionsRef.current.contains(e.target as Node)) {
+        setMobileActionsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mobileActionsOpen]);
+
   // Computed: Can the user edit this case?
   const isOwner = caseData?.sharing?.is_owner !== false;
   const canEdit = isOwner || caseData?.sharing?.my_permission === 'edit';
+
+  // Compute next kenmerk number based on existing vorderingen
+  const nextKenmerkNummer = caseData ? caseData.vorderingen.length + 1 : 1;
 
   const resetVorderingForm = () => {
     setVorderingForm({
@@ -256,15 +279,19 @@ export default function CaseDetailPage() {
 
   async function handleSaveInlineVordering() {
     if (!caseData || savingVordering) return;
-    if (!inlineVorderingForm.kenmerk || !inlineVorderingForm.bedrag || !inlineVorderingForm.datum) return;
+    if (!inlineVorderingForm.bedrag || !inlineVorderingForm.datum) return;
+
+    const kenmerk = inlineVorderingForm.kenmerk || `Kenmerk ${nextKenmerkNummer}`;
+    const defaultBetaaltermijn = caseData.default_betaaltermijn || 0;
 
     const data = {
       item_type: inlineVorderingForm.item_type,
-      kenmerk: inlineVorderingForm.kenmerk,
+      kenmerk,
       bedrag: parseFloat(inlineVorderingForm.bedrag),
       datum: inlineVorderingForm.datum,
       rentetype: inlineVorderingForm.rentetype,
       kosten: parseFloat(inlineVorderingForm.kosten) || 0,
+      betaaltermijn_dagen: defaultBetaaltermijn,
     };
 
     setSavingVordering(true);
@@ -513,6 +540,9 @@ export default function CaseDetailPage() {
   async function handleUpdateDefaultBetaaltermijn(value: string) {
     if (!caseData) return;
     const numValue = parseInt(value) || 0;
+    const oldValue = caseData.default_betaaltermijn || 0;
+    if (numValue === oldValue) return;
+
     try {
       await updateCase(caseId, {
         naam: caseData.naam,
@@ -521,6 +551,44 @@ export default function CaseDetailPage() {
         strategie: caseData.strategie,
         default_betaaltermijn: numValue,
       });
+
+      // Check if there are existing vorderingen with old default value that could be updated
+      const vorderingenMetOudeWaarde = caseData.vorderingen.filter(
+        v => (v.betaaltermijn_dagen || 0) === oldValue
+      );
+
+      if (vorderingenMetOudeWaarde.length > 0) {
+        const updateBestaande = confirm(
+          `Standaard betaaltermijn gewijzigd naar ${numValue} dagen.\n\n` +
+          `${vorderingenMetOudeWaarde.length} bestaande vordering(en) hebben nog ${oldValue} dagen.\n` +
+          `Wilt u deze ook aanpassen naar ${numValue} dagen?\n\n` +
+          `OK = Alle aanpassen\nAnnuleren = Alleen nieuwe vorderingen`
+        );
+
+        if (updateBestaande) {
+          // Update all matching vorderingen
+          for (const v of vorderingenMetOudeWaarde) {
+            try {
+              await updateVordering(v.id, {
+                ...v,
+                bedrag: Number(v.bedrag),
+                kosten: Number(v.kosten || 0),
+                opslag: v.opslag ? Number(v.opslag) : undefined,
+                betaaltermijn_dagen: numValue,
+                bodemrente: v.bodemrente ? Number(v.bodemrente) : undefined,
+              });
+            } catch (err) {
+              console.error(`Kon vordering ${v.kenmerk} niet bijwerken:`, err);
+            }
+          }
+          // Reload case data to reflect changes
+          const refreshed = await getCase(caseId);
+          setCaseData(refreshed);
+          setResult(null);
+          return;
+        }
+      }
+
       setCaseData({ ...caseData, default_betaaltermijn: numValue });
     } catch (err) {
       console.error(err);
@@ -561,9 +629,11 @@ export default function CaseDetailPage() {
   async function handleSaveVordering() {
     if (!caseData || savingVordering) return;
 
+    const kenmerk = vorderingForm.kenmerk || `Kenmerk ${nextKenmerkNummer}`;
+
     const data = {
       item_type: vorderingForm.item_type,
-      kenmerk: vorderingForm.kenmerk,
+      kenmerk,
       bedrag: parseFloat(vorderingForm.bedrag),
       datum: vorderingForm.datum,
       rentetype: vorderingForm.rentetype,
@@ -775,33 +845,36 @@ export default function CaseDetailPage() {
             <SharedBadge sharing={caseData.sharing} />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            {isOwner ? (
-              kanSharing ? (
-                <ShareCaseDialog caseId={caseId} caseName={caseData.naam} onShareChange={loadCase}>
-                  <Button variant="outline" size="lg" className="shadow-sm">
-                    Delen
+            {/* Delen/Niet meer volgen - hidden on mobile, in overflow */}
+            <div className="hidden sm:flex gap-2">
+              {isOwner ? (
+                kanSharing ? (
+                  <ShareCaseDialog caseId={caseId} caseName={caseData.naam} onShareChange={loadCase}>
+                    <Button variant="outline" size="lg" className="shadow-sm">
+                      Delen
+                    </Button>
+                  </ShareCaseDialog>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="shadow-sm gap-1.5"
+                    onClick={() => { setUpgradeFeature('sharing'); setUpgradeModalOpen(true); }}
+                  >
+                    Delen <ProBadge />
                   </Button>
-                </ShareCaseDialog>
+                )
               ) : (
                 <Button
                   variant="outline"
                   size="lg"
-                  className="shadow-sm gap-1.5"
-                  onClick={() => { setUpgradeFeature('sharing'); setUpgradeModalOpen(true); }}
+                  className="shadow-sm"
+                  onClick={() => setLeaveDialogOpen(true)}
                 >
-                  Delen <ProBadge />
+                  Niet meer volgen
                 </Button>
-              )
-            ) : (
-              <Button
-                variant="outline"
-                size="lg"
-                className="shadow-sm"
-                onClick={() => setLeaveDialogOpen(true)}
-              >
-                Niet meer volgen
-              </Button>
-            )}
+              )}
+            </div>
             <Button
               size="lg"
               onClick={handleCalculate}
@@ -817,46 +890,107 @@ export default function CaseDetailPage() {
                 <>Bereken Rente</>
               )}
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              onClick={handleShowPdfPreview}
-              disabled={generatingPdf || caseData.vorderingen.length === 0}
-              className="shadow-sm"
-              title="PDF bekijken"
-            >
-              {generatingPdf ? (
-                <span className="animate-spin">⟳</span>
-              ) : (
-                <>PDF</>
-              )}
-            </Button>
-            {isFree ? (
+            {/* Secondary actions - desktop */}
+            <div className="hidden sm:flex gap-2">
               <Button
                 size="lg"
                 variant="outline"
-                className="shadow-sm gap-1.5"
-                onClick={() => { setUpgradeFeature('excel'); setUpgradeModalOpen(true); }}
-                disabled={caseData.vorderingen.length === 0}
-              >
-                Excel <ProBadge />
-              </Button>
-            ) : (
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={handleExcelExport}
-                disabled={generatingExcel || caseData.vorderingen.length === 0}
+                onClick={handleShowPdfPreview}
+                disabled={generatingPdf || caseData.vorderingen.length === 0}
                 className="shadow-sm"
-                title="Excel downloaden"
+                title="PDF bekijken"
               >
-                {generatingExcel ? (
+                {generatingPdf ? (
                   <span className="animate-spin">⟳</span>
                 ) : (
-                  <>Excel</>
+                  <>PDF</>
                 )}
               </Button>
-            )}
+              {isFree ? (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="shadow-sm gap-1.5"
+                  onClick={() => { setUpgradeFeature('excel'); setUpgradeModalOpen(true); }}
+                  disabled={caseData.vorderingen.length === 0}
+                >
+                  Excel <ProBadge />
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={handleExcelExport}
+                  disabled={generatingExcel || caseData.vorderingen.length === 0}
+                  className="shadow-sm"
+                  title="Excel downloaden"
+                >
+                  {generatingExcel ? (
+                    <span className="animate-spin">⟳</span>
+                  ) : (
+                    <>Excel</>
+                  )}
+                </Button>
+              )}
+            </div>
+            {/* Mobile overflow menu */}
+            <div className="sm:hidden relative" ref={mobileActionsRef}>
+              <Button
+                size="lg"
+                variant="outline"
+                className="shadow-sm px-3"
+                onClick={() => setMobileActionsOpen(!mobileActionsOpen)}
+              >
+                &#x22EF;
+              </Button>
+              {mobileActionsOpen && (
+                <div className="absolute right-0 top-full mt-1 w-48 rounded-md border bg-popover text-popover-foreground shadow-lg py-1 z-50">
+                  <button
+                    onClick={() => { setMobileActionsOpen(false); handleShowPdfPreview(); }}
+                    disabled={generatingPdf || caseData.vorderingen.length === 0}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {generatingPdf ? 'PDF genereren...' : 'PDF bekijken'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileActionsOpen(false);
+                      if (isFree) { setUpgradeFeature('excel'); setUpgradeModalOpen(true); }
+                      else handleExcelExport();
+                    }}
+                    disabled={generatingExcel || caseData.vorderingen.length === 0}
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {generatingExcel ? 'Excel genereren...' : 'Excel downloaden'}{isFree ? ' (Pro)' : ''}
+                  </button>
+                  <div className="border-t my-1" />
+                  {isOwner ? (
+                    <button
+                      onClick={() => {
+                        setMobileActionsOpen(false);
+                        if (kanSharing) {
+                          // Trigger share dialog - user can tap the desktop share button
+                          // For mobile, we show the share dialog by simulating a click
+                          document.querySelector<HTMLButtonElement>('[data-mobile-share-trigger]')?.click();
+                        } else {
+                          setUpgradeFeature('sharing'); setUpgradeModalOpen(true);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+                    >
+                      Delen{!kanSharing ? ' (Pro)' : ''}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setMobileActionsOpen(false); setLeaveDialogOpen(true); }}
+                      className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+                    >
+                      Niet meer volgen
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -871,67 +1005,59 @@ export default function CaseDetailPage() {
 
       {/* Zaak instellingen */}
       <Card className="mb-4">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">Referentie</TableHead>
-                <TableHead className="font-semibold">Einddatum berekening</TableHead>
-                <TableHead className="font-semibold">Standaard betaaltermijn</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell>
-                  <Input
-                    value={localReference}
-                    onChange={(e) => setLocalReference(e.target.value)}
-                    onBlur={() => {
-                      if (localReference !== (caseData.klant_referentie || '')) {
-                        handleUpdateReference(localReference);
-                      }
-                    }}
-                    placeholder="Uw dossiernummer"
-                    className="h-9"
-                    disabled={!canEdit}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    type="date"
-                    value={localEinddatum}
-                    onChange={(e) => setLocalEinddatum(e.target.value)}
-                    onBlur={() => {
-                      if (localEinddatum !== caseData.einddatum) {
-                        handleUpdateEinddatum(localEinddatum);
-                      }
-                    }}
-                    className="h-9 w-44"
-                    disabled={!canEdit}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={localDefaultBetaaltermijn}
-                      onChange={(e) => setLocalDefaultBetaaltermijn(e.target.value)}
-                      onBlur={() => {
-                        if (localDefaultBetaaltermijn !== String(caseData.default_betaaltermijn || 0)) {
-                          handleUpdateDefaultBetaaltermijn(localDefaultBetaaltermijn);
-                        }
-                      }}
-                      className="h-9 w-20"
-                      disabled={!canEdit}
-                      placeholder="0"
-                    />
-                    <span className="text-sm text-muted-foreground">dagen</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Referentie</label>
+              <Input
+                value={localReference}
+                onChange={(e) => setLocalReference(e.target.value)}
+                onBlur={() => {
+                  if (localReference !== (caseData.klant_referentie || '')) {
+                    handleUpdateReference(localReference);
+                  }
+                }}
+                placeholder="Uw dossiernummer"
+                className="h-9"
+                disabled={!canEdit}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Einddatum berekening</label>
+              <Input
+                type="date"
+                value={localEinddatum}
+                onChange={(e) => setLocalEinddatum(e.target.value)}
+                onBlur={() => {
+                  if (localEinddatum !== caseData.einddatum) {
+                    handleUpdateEinddatum(localEinddatum);
+                  }
+                }}
+                className="h-9"
+                disabled={!canEdit}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Standaard betaaltermijn</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  value={localDefaultBetaaltermijn}
+                  onChange={(e) => setLocalDefaultBetaaltermijn(e.target.value)}
+                  onBlur={() => {
+                    if (localDefaultBetaaltermijn !== String(caseData.default_betaaltermijn || 0)) {
+                      handleUpdateDefaultBetaaltermijn(localDefaultBetaaltermijn);
+                    }
+                  }}
+                  className="h-9 w-20"
+                  disabled={!canEdit}
+                  placeholder="0"
+                />
+                <span className="text-sm text-muted-foreground">dagen</span>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -964,7 +1090,7 @@ export default function CaseDetailPage() {
                   + Toevoegen <ProBadge />
                 </Button>
               ) : (
-                <Button size="sm" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
+                <Button size="sm" onClick={() => { if (isMobile) { openAddVordering(); } else { resetInlineVorderingForm(); setShowInlineVordering(true); } }} className="shadow-sm" disabled={savingVordering || deletingVorderingId !== null}>
                   + Toevoegen
                 </Button>
               )}
@@ -978,13 +1104,60 @@ export default function CaseDetailPage() {
                 Nog geen vorderingen toegevoegd
               </p>
               {canEdit && (
-                <Button variant="outline" onClick={() => { resetInlineVorderingForm(); setShowInlineVordering(true); }} disabled={savingVordering}>
+                <Button variant="outline" onClick={() => { if (isMobile) { openAddVordering(); } else { resetInlineVorderingForm(); setShowInlineVordering(true); } }} disabled={savingVordering}>
                   + Eerste vordering toevoegen{maxVorderingen !== null ? ` (max ${maxVorderingen})` : ''}
                 </Button>
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile card view */}
+            <div className="sm:hidden space-y-2">
+              {[...caseData.vorderingen]
+                .sort((a, b) => {
+                  const dateA = new Date(a.datum).getTime();
+                  const dateB = new Date(b.datum).getTime();
+                  return vorderingenSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+                })
+                .map((v) => (
+                <div key={v.id} className={`p-3 rounded-lg border ${v.item_type === 'kosten' ? 'bg-amber-50 border-amber-200' : 'bg-background'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold shrink-0 ${
+                          v.item_type === 'kosten' ? 'bg-amber-500 text-white' : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {v.item_type === 'kosten' ? 'K' : 'V'}
+                      </span>
+                      <span className="font-medium font-mono truncate" title={v.kenmerk}>{v.kenmerk}</span>
+                      {v.pauze_start && v.pauze_eind && <span className="text-orange-500 shrink-0">⏸</span>}
+                    </div>
+                    {canEdit && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => openEditVordering(v)} className="h-8 w-8 p-0" disabled={deletingVorderingId === v.id}>
+                          <span className="text-base">✎</span>
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Vordering "${v.kenmerk}" verwijderen?`)) handleDeleteVordering(v.id); }} className="h-8 w-8 p-0" disabled={deletingVorderingId !== null}>
+                          {deletingVorderingId === v.id ? <span className="animate-spin">⟳</span> : <span className="text-base">×</span>}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
+                    <span className="font-mono font-semibold">€ {formatBedragParts(v.bedrag).amount}</span>
+                    <span className="font-mono text-muted-foreground">{formatDatum(v.datum)}{v.betaaltermijn_dagen ? ` +${v.betaaltermijn_dagen}d` : ''}</span>
+                    <Badge variant="outline" className="font-normal text-xs" title={RENTETYPE_LABELS[v.rentetype]}>
+                      {RENTETYPE_SHORT[v.rentetype]}
+                      {v.rentetype === 5 && v.opslag ? ` ${(v.opslag * 100).toFixed(1)}%` : null}
+                      {(v.rentetype === 6 || v.rentetype === 7) && v.opslag ? ` +${(v.opslag * 100).toFixed(1)}%` : null}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden sm:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
@@ -996,7 +1169,7 @@ export default function CaseDetailPage() {
                         className="flex items-center gap-1 hover:text-primary transition-colors"
                         title={vorderingenSortOrder === 'asc' ? 'Oudste eerst (klik voor nieuwste eerst)' : 'Nieuwste eerst (klik voor oudste eerst)'}
                       >
-                        Startdatum
+                        Factuurdatum
                         <span className="text-xs">{vorderingenSortOrder === 'asc' ? '↑' : '↓'}</span>
                       </button>
                     </TableHead>
@@ -1104,7 +1277,7 @@ export default function CaseDetailPage() {
                             {inlineVorderingForm.item_type === 'kosten' ? 'K' : 'V'}
                           </button>
                           <Input
-                            placeholder="Kenmerk"
+                            placeholder={`Kenmerk ${nextKenmerkNummer}`}
                             value={inlineVorderingForm.kenmerk}
                             onChange={(e) => setInlineVorderingForm({ ...inlineVorderingForm, kenmerk: e.target.value })}
                             className="h-8 text-sm font-mono"
@@ -1161,14 +1334,13 @@ export default function CaseDetailPage() {
                       <TableCell>
                         <div className="flex gap-1 justify-center">
                           <Button
-                            variant="ghost"
                             size="sm"
                             onClick={handleSaveInlineVordering}
                             title="Opslaan (Enter)"
-                            className="h-8 w-8 p-0 hover:bg-green-100 hover:text-green-700"
-                            disabled={savingVordering || !inlineVorderingForm.kenmerk || !inlineVorderingForm.bedrag}
+                            className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                            disabled={savingVordering || !inlineVorderingForm.bedrag}
                           >
-                            {savingVordering ? <span className="animate-spin">⟳</span> : '✓'}
+                            {savingVordering ? <span className="animate-spin">⟳</span> : 'Opslaan'}
                           </Button>
                           <Button
                             variant="ghost"
@@ -1197,6 +1369,7 @@ export default function CaseDetailPage() {
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -1224,7 +1397,7 @@ export default function CaseDetailPage() {
                 + Toevoegen <ProBadge />
               </Button>
             ) : (
-              <Button size="sm" onClick={() => { resetInlineDeelbetalingForm(); setShowInlineDeelbetaling(true); }} className="shadow-sm" disabled={savingDeelbetaling || deletingDeelbetalingId !== null}>
+              <Button size="sm" onClick={() => { if (isMobile) { openAddDeelbetaling(); } else { resetInlineDeelbetalingForm(); setShowInlineDeelbetaling(true); } }} className="shadow-sm" disabled={savingDeelbetaling || deletingDeelbetalingId !== null}>
                 + Toevoegen
               </Button>
             )
@@ -1238,7 +1411,40 @@ export default function CaseDetailPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Mobile card view */}
+            <div className="sm:hidden space-y-2">
+              {caseData.deelbetalingen.map((d) => (
+                <div key={d.id} className="p-3 rounded-lg border bg-background">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-medium font-mono">{d.kenmerk || '-'}</span>
+                    </div>
+                    {canEdit && (
+                      <div className="flex gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDeelbetaling(d)} className="h-8 w-8 p-0" disabled={deletingDeelbetalingId === d.id}>
+                          <span className="text-base">✎</span>
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Deelbetaling "${d.kenmerk || formatDatum(d.datum)}" verwijderen?`)) handleDeleteDeelbetaling(d.id); }} className="h-8 w-8 p-0" disabled={deletingDeelbetalingId !== null}>
+                          {deletingDeelbetalingId === d.id ? <span className="animate-spin">⟳</span> : <span className="text-base">×</span>}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm">
+                    <span className="font-mono font-semibold">€ {formatBedragParts(d.bedrag).amount}</span>
+                    <span className="font-mono text-muted-foreground">{formatDatum(d.datum)}</span>
+                    {d.aangewezen.length > 0 ? (
+                      <span className="text-xs font-mono">{d.aangewezen.join(', ')}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">via strategie</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Desktop table view */}
+            <div className="hidden sm:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
@@ -1407,6 +1613,7 @@ export default function CaseDetailPage() {
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -1462,7 +1669,7 @@ export default function CaseDetailPage() {
             {/* Afgelost detail */}
             <div className="mb-8 p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="text-xs uppercase tracking-wider text-green-700 mb-2 font-semibold">Totaal afgelost</div>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-green-600">Hoofdsom:</span>{' '}
                   <span className="font-mono font-medium">{formatBedrag(result.totalen.afgelost_hoofdsom)}</span>
@@ -1485,12 +1692,58 @@ export default function CaseDetailPage() {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                 Overzicht per vordering
               </h3>
-              <div className="border rounded-lg overflow-hidden">
+              {/* Mobile card view */}
+              <div className="sm:hidden space-y-2">
+                {[...result.vorderingen]
+                  .sort((a, b) => {
+                    const vordA = caseData.vorderingen.find(v => v.kenmerk === a.kenmerk);
+                    const vordB = caseData.vorderingen.find(v => v.kenmerk === b.kenmerk);
+                    const dateA = vordA ? new Date(vordA.datum).getTime() : 0;
+                    const dateB = vordB ? new Date(vordB.datum).getTime() : 0;
+                    return dateA - dateB;
+                  })
+                  .map((v) => {
+                    const vordInfo = caseData.vorderingen.find(vd => vd.kenmerk === v.kenmerk);
+                    return (
+                      <div key={v.kenmerk} className={`p-3 rounded-lg border ${v.status === 'VOLDAAN' ? 'bg-green-50 border-green-200' : v.item_type === 'kosten' ? 'bg-amber-50/50 border-amber-200' : ''}`}>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Badge variant="outline" className={`text-xs px-1 shrink-0 ${v.item_type === 'kosten' ? 'bg-amber-100 border-amber-300 text-amber-800' : ''}`}>
+                              {v.item_type === 'kosten' ? 'K' : 'V'}
+                            </Badge>
+                            <span className="font-mono font-medium truncate">{v.kenmerk}</span>
+                            {v.status === 'VOLDAAN' && <Badge className="bg-green-100 text-green-700 border-green-300 text-xs shrink-0">Voldaan</Badge>}
+                          </div>
+                          <span className="font-mono font-bold shrink-0">
+                            {v.status === 'VOLDAAN' ? <span className="text-green-600">€ 0,00</span> : formatBedrag(v.openstaand)}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          <div><span className="text-muted-foreground">Hoofdsom:</span> <span className="font-mono">{formatBedrag(v.oorspronkelijk_bedrag)}</span></div>
+                          <div><span className="text-muted-foreground">Rente:</span> <span className="font-mono">{formatBedrag(Number(v.totale_rente || 0) + Number(v.totale_rente_kosten || 0))}</span></div>
+                          {vordInfo && <div><span className="text-muted-foreground">Datum:</span> <span className="font-mono">{formatDatum(vordInfo.datum)}</span></div>}
+                          {(v.afgelost_hoofdsom > 0 || v.afgelost_rente > 0) && (
+                            <div><span className="text-green-600">Afgelost:</span> <span className="font-mono text-green-600">{formatBedrag(v.afgelost_hoofdsom + (Number(v.afgelost_rente || 0) + Number(v.afgelost_rente_kosten || 0)))}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                {/* Totaal */}
+                <div className="p-3 rounded-lg border-2 bg-muted/30 font-semibold">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono">Totaal</span>
+                    <span className="font-mono text-primary">{formatBedrag(result.totalen.openstaand)}</span>
+                  </div>
+                </div>
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden sm:block border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-semibold">Vordering</TableHead>
-                      <TableHead className="font-semibold">Startdatum</TableHead>
+                      <TableHead className="font-semibold">Factuurdatum</TableHead>
                       <TableHead className="text-right font-semibold">Hoofdsom</TableHead>
                       <TableHead className="text-right font-semibold">Rente</TableHead>
                       <TableHead className="text-right font-semibold">Afg. HS</TableHead>
@@ -1616,14 +1869,14 @@ export default function CaseDetailPage() {
                 .map((v, vIndex) => (
                 <AccordionItem key={v.kenmerk} value={v.kenmerk} className={vIndex === 0 ? '' : 'border-t'}>
                   <AccordionTrigger className="hover:no-underline hover:bg-muted/30 px-4">
-                    <div className="flex items-center w-full">
+                    <div className="flex items-center w-full flex-wrap sm:flex-nowrap gap-1 sm:gap-0">
                       <Badge
                         variant="outline"
                         className={`text-xs px-1 mr-2 shrink-0 ${v.item_type === 'kosten' ? 'bg-amber-100 border-amber-300 text-amber-800' : ''}`}
                       >
                         {v.item_type === 'kosten' ? 'K' : 'V'}
                       </Badge>
-                      <span className="font-medium font-mono w-48 truncate shrink-0" title={v.kenmerk}>
+                      <span className="font-medium font-mono w-32 sm:w-48 truncate shrink-0" title={v.kenmerk}>
                         {v.kenmerk}
                         {v.pauze_start && v.pauze_eind && (
                           <span className="ml-1 text-orange-500">⏸</span>
@@ -1634,8 +1887,8 @@ export default function CaseDetailPage() {
                         if (vordInfo) {
                           return (
                             <>
-                              <span className="font-mono w-24 shrink-0 ml-2">{formatDatum(vordInfo.datum)}</span>
-                              <Badge variant="outline" className="text-xs bg-muted/50 w-24 justify-center shrink-0 ml-2">
+                              <span className="font-mono w-24 shrink-0 ml-2 hidden sm:inline">{formatDatum(vordInfo.datum)}</span>
+                              <Badge variant="outline" className="text-xs bg-muted/50 w-24 justify-center shrink-0 ml-2 hidden sm:inline-flex">
                                 {RENTETYPE_SHORT[vordInfo.rentetype] || `Type ${vordInfo.rentetype}`}
                                 {vordInfo.opslag && vordInfo.rentetype === 5 ? ` ${(vordInfo.opslag * 100).toFixed(1)}%` : null}
                                 {vordInfo.opslag && (vordInfo.rentetype === 6 || vordInfo.rentetype === 7) ? ` +${(vordInfo.opslag * 100).toFixed(1)}%` : null}
@@ -1716,7 +1969,7 @@ export default function CaseDetailPage() {
                             return null;
                           })()}
                           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Renteperiodes</div>
-                          <div className="border rounded-lg overflow-hidden">
+                          <div className="border rounded-lg overflow-hidden overflow-x-auto">
                           <Table>
                             <TableHeader>
                               <TableRow className="bg-muted/50">
@@ -1981,10 +2234,10 @@ export default function CaseDetailPage() {
               <Input
                 value={vorderingForm.kenmerk}
                 onChange={(e) => setVorderingForm({ ...vorderingForm, kenmerk: e.target.value })}
-                placeholder={vorderingForm.item_type === 'kosten' ? "BIK-001" : "FAC-2024-001"}
+                placeholder={editingVordering ? vorderingForm.kenmerk : vorderingForm.item_type === 'kosten' ? `Kosten ${nextKenmerkNummer}` : `Kenmerk ${nextKenmerkNummer}`}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Bedrag *</label>
                 <Input
@@ -1996,7 +2249,7 @@ export default function CaseDetailPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Startdatum *</label>
+                <label className="text-sm font-medium">Factuurdatum *</label>
                 <Input
                   type="date"
                   value={vorderingForm.datum}
@@ -2088,7 +2341,7 @@ export default function CaseDetailPage() {
               </button>
               {pauzeExpanded && kanPauze && (
                 <div className="p-4 bg-orange-50/30 border-t">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs text-muted-foreground">Schorsing vanaf</label>
                       <Input
@@ -2127,7 +2380,7 @@ export default function CaseDetailPage() {
             )}
             {(vorderingForm.rentetype === 6 || vorderingForm.rentetype === 7) && (
               <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Opslag %</label>
                     <Input
@@ -2171,7 +2424,6 @@ export default function CaseDetailPage() {
               onClick={handleSaveVordering}
               disabled={
                 savingVordering ||
-                !vorderingForm.kenmerk ||
                 !vorderingForm.bedrag ||
                 !vorderingForm.datum ||
                 (vorderingForm.rentetype === 5 && !vorderingForm.opslag)
@@ -2213,7 +2465,7 @@ export default function CaseDetailPage() {
                 placeholder="BET-001"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Bedrag *</label>
                 <Input

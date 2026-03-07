@@ -307,7 +307,7 @@ export default function AdminPage() {
   return (
     <div className="container py-8 max-w-6xl mx-auto px-4">
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="font-serif text-3xl font-bold text-primary">
             Beheer
@@ -341,7 +341,7 @@ export default function AdminPage() {
 
       {/* Tab Navigation */}
       <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as ActiveTab)} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
+        <TabsList className="flex w-full overflow-x-auto whitespace-nowrap lg:w-auto lg:inline-flex">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="users">Gebruikers</TabsTrigger>
           {isAdmin && <TabsTrigger value="domains">Domeinen</TabsTrigger>}
@@ -758,7 +758,7 @@ export default function AdminPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Filter op domein:</span>
                       <Select value={activityDomainFilter} onValueChange={setActivityDomainFilter}>
-                        <SelectTrigger className="w-[200px] h-9">
+                        <SelectTrigger className="w-full sm:w-[200px] h-9">
                           <SelectValue placeholder="Alle domeinen" />
                         </SelectTrigger>
                         <SelectContent>
