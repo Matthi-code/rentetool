@@ -1957,11 +1957,11 @@ export default function CaseDetailPage() {
                               const rentestartdatum = new Date(factuurdatum);
                               rentestartdatum.setDate(rentestartdatum.getDate() + origVordering.betaaltermijn_dagen);
                               return (
-                                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-2 text-sm flex items-center gap-4 flex-wrap">
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-2 text-sm flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
                                   <span>Factuurdatum: <strong className="font-mono">{formatDatum(origVordering.datum)}</strong></span>
-                                  <span className="text-muted-foreground">|</span>
+                                  <span className="text-muted-foreground hidden sm:inline">|</span>
                                   <span>Betaaltermijn: <strong>{origVordering.betaaltermijn_dagen} dagen</strong></span>
-                                  <span className="text-muted-foreground">|</span>
+                                  <span className="text-muted-foreground hidden sm:inline">|</span>
                                   <span>Rente start: <strong className="font-mono">{formatDatum(rentestartdatum.toISOString().split('T')[0])}</strong></span>
                                 </div>
                               );
@@ -1969,7 +1969,69 @@ export default function CaseDetailPage() {
                             return null;
                           })()}
                           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Renteperiodes</div>
-                          <div className="border rounded-lg overflow-hidden overflow-x-auto">
+                          {/* Mobile: stacked cards */}
+                          <div className="sm:hidden space-y-1.5">
+                            {(() => {
+                              let cumulatieveRente = 0;
+                              return v.periodes.map((p, i) => {
+                                if (!p.is_pauze) {
+                                  cumulatieveRente += Number(p.rente) || 0;
+                                }
+                                const subtotaalTotNu = cumulatieveRente;
+                                const betalingOpEinddatum = result.deelbetalingen.find(
+                                  db => db.datum === p.eind && db.toerekeningen.some(t => t.vordering === v.kenmerk)
+                                );
+                                const toerekeningen = betalingOpEinddatum?.toerekeningen.filter(t => t.vordering === v.kenmerk) || [];
+                                if (betalingOpEinddatum && toerekeningen.length > 0) {
+                                  const renteAfgelost = toerekeningen.filter(t => t.type === 'rente').reduce((sum, t) => sum + (Number(t.bedrag) || 0), 0);
+                                  cumulatieveRente = Math.max(0, cumulatieveRente - renteAfgelost);
+                                }
+                                if (p.is_kapitalisatie) cumulatieveRente = 0;
+
+                                return (
+                                  <React.Fragment key={i}>
+                                    <div className={`p-2.5 rounded border text-xs ${p.is_betaaltermijn ? 'bg-slate-50 border-slate-200' : p.is_pauze ? 'bg-orange-50 border-orange-200' : p.is_kapitalisatie ? 'bg-blue-50 border-blue-200' : 'border-border'}`}>
+                                      <div className="font-mono text-muted-foreground mb-1">
+                                        {formatDatum(p.start)} t/m {formatDatumTm(p.eind)}
+                                        {p.is_betaaltermijn && <span className="ml-1 text-slate-500">vervaltermijn</span>}
+                                        {p.is_pauze && <span className="ml-1 text-orange-500">⏸</span>}
+                                        {p.is_kapitalisatie && <span className="ml-1 text-blue-600">↻</span>}
+                                      </div>
+                                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono">
+                                        <span>{p.dagen}d</span>
+                                        <span>HS {formatBedrag(p.hoofdsom)}</span>
+                                        {!p.is_betaaltermijn && !p.is_pauze && <span>{formatPercentage(p.rente_pct)}</span>}
+                                        {p.is_pauze && <span className="text-orange-500">geschorst</span>}
+                                        {!p.is_betaaltermijn && <span className="font-semibold">{formatBedrag(p.rente)}</span>}
+                                      </div>
+                                    </div>
+                                    {betalingOpEinddatum && toerekeningen.length > 0 && (() => {
+                                      const renteAfgelost = toerekeningen.filter(t => t.type === 'rente').reduce((sum, t) => sum + (Number(t.bedrag) || 0), 0);
+                                      const resterendeRente = Math.max(0, subtotaalTotNu - renteAfgelost);
+                                      return (
+                                        <div className="p-2.5 rounded border border-green-300 bg-green-50 text-xs space-y-1">
+                                          <div className="font-mono text-green-700">Subtotaal: <span className="font-semibold">{formatBedrag(subtotaalTotNu)}</span></div>
+                                          <div className="font-mono text-green-800 flex items-center gap-1.5">
+                                            <span>💰</span>
+                                            {toerekeningen.map((t, ti) => (
+                                              <span key={ti}>{t.type}: <strong>{formatBedrag(t.bedrag)}</strong></span>
+                                            ))}
+                                          </div>
+                                          {resterendeRente > 0 && <div className="font-mono text-green-600">Resterend: <span className="font-semibold">{formatBedrag(resterendeRente)}</span></div>}
+                                        </div>
+                                      );
+                                    })()}
+                                  </React.Fragment>
+                                );
+                              });
+                            })()}
+                            <div className="p-2.5 rounded border-2 bg-muted/30 text-xs font-semibold font-mono flex justify-between">
+                              <span>Totaal ({v.periodes.reduce((sum, p) => sum + (p.dagen || 0), 0)} dagen)</span>
+                              <span>{formatBedrag(v.totale_rente)}</span>
+                            </div>
+                          </div>
+                          {/* Desktop: table */}
+                          <div className="hidden sm:block border rounded-lg overflow-hidden">
                           <Table>
                             <TableHeader>
                               <TableRow className="bg-muted/50">
@@ -1984,27 +2046,20 @@ export default function CaseDetailPage() {
                               {(() => {
                                 let cumulatieveRente = 0;
                                 return v.periodes.map((p, i) => {
-                                  // Add this period's interest to cumulative total (skip pauze periods)
                                   if (!p.is_pauze) {
                                     cumulatieveRente += Number(p.rente) || 0;
                                   }
                                   const subtotaalTotNu = cumulatieveRente;
-
-                                  // Check if there's a payment on the end date of this period
                                   const betalingOpEinddatum = result.deelbetalingen.find(
                                     db => db.datum === p.eind && db.toerekeningen.some(t => t.vordering === v.kenmerk)
                                   );
                                   const toerekeningen = betalingOpEinddatum?.toerekeningen.filter(t => t.vordering === v.kenmerk) || [];
-
-                                  // After payment, subtract the interest that was paid off
                                   if (betalingOpEinddatum && toerekeningen.length > 0) {
                                     const renteAfgelost = toerekeningen
                                       .filter(t => t.type === 'rente')
                                       .reduce((sum, t) => sum + (Number(t.bedrag) || 0), 0);
                                     cumulatieveRente = Math.max(0, cumulatieveRente - renteAfgelost);
                                   }
-
-                                  // Reset cumulative after kapitalisatie (interest added to principal)
                                   if (p.is_kapitalisatie) {
                                     cumulatieveRente = 0;
                                   }
